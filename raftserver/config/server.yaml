@@ -1,0 +1,95 @@
+# ConcordKV Raft服务器配置文件
+
+# 服务器基本配置
+server:
+  # 节点ID，全局唯一
+  id: "node1"
+  # 节点名称，可读性好的标识
+  name: "node1"
+  # 对外服务地址
+  host: "127.0.0.1"
+  # 对外服务端口
+  port: 5001
+  # 数据目录
+  data_dir: "./data"
+  # 日志级别: debug, info, warn, error
+  log_level: "info"
+
+# 集群配置
+cluster:
+  # 集群ID
+  id: "cluster1"
+  # 集群节点列表（初始成员）
+  nodes:
+    - id: "node1"
+      host: "127.0.0.1"
+      port: 5001
+    - id: "node2"
+      host: "127.0.0.1"
+      port: 5002
+    - id: "node3"
+      host: "127.0.0.1"
+      port: 5003
+  # 选举超时时间（毫秒）
+  election_timeout_ms: 1000
+  # 心跳间隔（毫秒）
+  heartbeat_interval_ms: 100
+  # 最大日志条目批量大小
+  max_append_entries: 100
+
+# 存储引擎配置
+storage:
+  # 存储引擎类型: memory, file, c_engine
+  type: "c_engine"
+  # C引擎配置
+  c_engine:
+    # C引擎库路径
+    lib_path: "../kvserver/libkvstore.so"
+    # 引擎类型: array, rbtree, hash
+    engine_type: "rbtree"
+  # 快照配置
+  snapshot:
+    # 自动快照阈值（日志条目数）
+    threshold: 10000
+    # 保留的快照数量
+    retain_count: 3
+  # WAL配置
+  wal:
+    # 是否同步写入
+    sync_write: true
+    # 日志分段大小（字节）
+    segment_size: 67108864  # 64MB
+
+# 客户端API配置
+api:
+  # 是否启用HTTP API
+  enable_http: true
+  # HTTP API端口
+  http_port: 8001
+  # 是否启用gRPC API
+  enable_grpc: true
+  # gRPC API端口
+  grpc_port: 9001
+  # 最大并发请求数
+  max_concurrent_requests: 1000
+  # 请求超时（毫秒）
+  request_timeout_ms: 5000
+
+# 高级选项
+advanced:
+  # 是否启用预投票
+  enable_pre_vote: true
+  # 是否启用只读优化
+  enable_read_only_optimization: true
+  # 线程池大小
+  thread_pool_size: 4
+  # 连接池大小
+  connection_pool_size: 20
+  # 监控端口
+  metrics_port: 9091
+  # 是否启用pprof
+  enable_pprof: false
+  # 是否启用Leader租约
+  enable_lease_read: true
+  # Leader租约有效期（毫秒）
+  lease_duration_ms: 500 
