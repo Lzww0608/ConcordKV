@@ -1,4 +1,3 @@
-
 // Zipper
 
 #include <stdio.h>
@@ -112,26 +111,34 @@ int init_hashtable(hashtable_t *hash) {
 
 // 
 void dest_hashtable(hashtable_t *hash) {
+	if (!hash || !hash->nodes) return;
 
-	if (!hash) return;
-
-	int i = 0;
-	for (i = 0;i < hash->max_slots;i ++) {
+	for (int i = 0; i < hash->max_slots; i++) {
 		hash_node_t *node = hash->nodes[i];
 
-		while (node != NULL) { // error
-
+		while (node != NULL) {
 			hash_node_t *tmp = node;
 			node = node->next;
-			hash->nodes[i] = node;
 			
+#if ENABLE_POINTER_KEY
+			// 释放键和值
+			if (tmp->key) {
+				kv_store_free(tmp->key);
+			}
+			if (tmp->value) {
+				kv_store_free(tmp->value);
+			}
+#endif
 			kv_store_free(tmp);
-			
 		}
+		
+		hash->nodes[i] = NULL; // 重置指针
 	}
 
 	kv_store_free(hash->nodes);
-	
+	hash->nodes = NULL;
+	hash->count = 0;
+	hash->max_slots = 0;
 }
 
 
@@ -188,6 +195,7 @@ char * get_kv_hashtable(hashtable_t *hash, char *key) {
 
 
 int count_kv_hashtable(hashtable_t *hash) {
+	if (!hash) return -1;
 	return hash->count;
 }
 
@@ -196,16 +204,17 @@ int count_kv_hashtable(hashtable_t *hash) {
 // -1: not exist
 //  0: succeed
 int delete_kv_hashtable(hashtable_t *hash, char *key) {
-	if (!hash || !key) return -2;
+	if (!hash || !key || !hash->nodes) return -2;
 
-	int idx = _hash(key, MAX_TABLE_SIZE);
+	int idx = _hash(key, hash->max_slots);
+	if (idx < 0 || idx >= hash->max_slots) return -2; // 无效的索引
 
 	hash_node_t *head = hash->nodes[idx];
-	if (head == NULL) return -1; 
-	// head node
+	if (head == NULL) return -1; // 链表为空
+	
+	// 如果是头节点
 	if (strcmp(head->key, key) == 0) {
-		hash_node_t *tmp = head->next;
-		hash->nodes[idx] = tmp;
+		hash->nodes[idx] = head->next;
 
 #if ENABLE_POINTER_KEY
 		if (head->key) {
@@ -214,43 +223,37 @@ int delete_kv_hashtable(hashtable_t *hash, char *key) {
 		if (head->value) {
 			kv_store_free(head->value);
 		}
-		kv_store_free(head);
-#else
-		free(head);
 #endif
-		hash->count --;
-
+		kv_store_free(head);
+		hash->count--;
 		return 0;
 	}
 
+	// 在链表中查找
 	hash_node_t *cur = head;
 	while (cur->next != NULL) {
-		if (strcmp(cur->next->key, key) == 0) break; // search node
+		if (strcmp(cur->next->key, key) == 0) {
+			// 找到节点
+			hash_node_t *tmp = cur->next;
+			cur->next = tmp->next;
+			
+#if ENABLE_POINTER_KEY
+			if (tmp->key) {
+				kv_store_free(tmp->key);
+			}
+			if (tmp->value) {
+				kv_store_free(tmp->value);
+			}
+#endif
+			kv_store_free(tmp);
+			hash->count--;
+			return 0;
+		}
 		
 		cur = cur->next;
 	}
 
-	if (cur->next == NULL) {
-		
-		return -1;
-	}
-
-	hash_node_t *tmp = cur->next;
-	cur->next = tmp->next;
-#if ENABLE_POINTER_KEY
-	if (tmp->key) {
-		kv_store_free(tmp->key);
-	}
-	if (tmp->value) {
-		kv_store_free(tmp->value);
-	}
-	kv_store_free(tmp);
-#else
-	free(tmp);
-#endif
-	hash->count --;
-
-	return 0;
+	return -1; // 未找到键
 }
 
 // 1: exist
@@ -306,29 +309,33 @@ int kvs_hash_modify(hashtable_t *hash, char *key, char *value) {
 
 	if (!hash || !key || !value) return -1;
 
-	int idx = _hash(key, MAX_TABLE_SIZE);
+	int idx = _hash(key, hash->max_slots);
+	if (idx < 0 || idx >= hash->max_slots) return -1;
 
 	hash_node_t *node = hash->nodes[idx];
-
+	
 	while (node != NULL) {
-
 		if (strcmp(node->key, key) == 0) {
-			kv_store_free(node->value);
-
-			node->value = kv_store_malloc(strlen(value) + 1);
+			// 找到键，更新值
+#if ENABLE_POINTER_KEY
+			// 释放旧值
 			if (node->value) {
-				strcpy(node->value, value);
-				return 0;
-			} else 
-				assert(0);
+				kv_store_free(node->value);
+			}
+			
+			// 创建新值的副本
+			node->value = kv_store_malloc(strlen(value) + 1);
+			if (!node->value) return -1;
+			strcpy(node->value, value);
+#else
+			strncpy(node->value, value, MAX_VALUE_LEN);
+#endif
+			return 0;
 		}
-
 		node = node->next;
 	}
-
-
-	return -1;
-
+	
+	return -1; // 未找到键
 }
 
 int kvs_hash_count(hashtable_t *hash) {
