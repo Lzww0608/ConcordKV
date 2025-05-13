@@ -1,6 +1,3 @@
-
-
-
 #ifndef __KV_STORE_H__
 #define __KV_STORE_H__
 
@@ -9,7 +6,6 @@
 #include <string.h>
 #include <assert.h>
 #include <stdlib.h>
-
 
 
 #define BUFFER_LENGTH		512
@@ -89,8 +85,14 @@ extern mempool_t m;
 
 #if ENABLE_HASH_KVENGINE
 
-typedef struct hashtable_s hashtable_t;
+typedef struct bucket_s bucket_t;
+typedef struct hash_node_s hash_node_t;
 
+typedef struct hashtable_s {
+    bucket_t *buckets;
+    int max_slots;
+    int count;
+} hashtable_t;
 
 extern hashtable_t Hash;
 
@@ -138,9 +140,8 @@ int kvs_array_count(array_t *arr);
 
 #if ENABLE_RBTREE_KVENGINE
 
-
-
 typedef struct _rbtree rbtree_t;
+typedef struct _rbtree_node rbtree_node_t;
 
 extern rbtree_t Tree;
 
@@ -152,9 +153,11 @@ int kvs_rbtree_delete(rbtree_t *tree, char *key);
 int kvs_rbtree_modify(rbtree_t *tree, char *key, char *value);
 int kvs_rbtree_count(rbtree_t *tree);
 
-
-
-
+// 红黑树内部函数，允许哈希表复用
+rbtree_node_t *rbtree_search(rbtree_t *tree, char *key);
+void rbtree_insert_node(rbtree_t *tree, rbtree_node_t *node);
+rbtree_node_t *rbtree_delete_node(rbtree_t *tree, rbtree_node_t *node);
+rbtree_node_t *rbtree_create_node(char *key, char *value);
 
 #endif
 
