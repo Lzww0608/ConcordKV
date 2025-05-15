@@ -42,11 +42,7 @@ type Client struct {
 	closed bool
 }
 
-// 内部连接结构
-type connection struct {
-	endpoint string
-	// TODO: 实现实际连接逻辑
-}
+// 内部连接结构定义已移至connection.go文件中
 
 // NewClient 创建新的客户端实例
 func NewClient(config Config) (*Client, error) {
@@ -86,11 +82,13 @@ func NewClient(config Config) (*Client, error) {
 
 // 初始化所有连接
 func (c *Client) initConnections() error {
-	// TODO: 实现实际连接逻辑
 	for _, endpoint := range c.config.Endpoints {
-		c.conns[endpoint] = &connection{
-			endpoint: endpoint,
+		conn := newConnection(endpoint)
+		// 尝试连接
+		if err := conn.connect(); err != nil {
+			return ErrConnectionFailed
 		}
+		c.conns[endpoint] = conn
 	}
 	return nil
 }
@@ -105,7 +103,14 @@ func (c *Client) Close() error {
 	}
 
 	c.closed = true
-	// TODO: 关闭所有连接
+
+	// 关闭所有连接
+	for _, conn := range c.conns {
+		if err := conn.disconnect(); err != nil {
+			// 记录错误但继续关闭其他连接
+			// 实际项目中可能需要日志记录
+		}
+	}
 
 	return nil
 }
@@ -123,9 +128,31 @@ func (c *Client) Get(key string) (string, error) {
 		}
 	}
 
-	// TODO: 实现实际获取逻辑
-	// 为演示目的，返回错误
-	return "", ErrKeyNotFound
+	// 构建请求
+	req := request{
+		Type: "GET",
+		Key:  key,
+	}
+
+	// 发送请求到一个可用连接
+	resp, err := c.doRequestWithRetry(req)
+	if err != nil {
+		return "", err
+	}
+
+	if !resp.Success {
+		if resp.Error == "key not found" {
+			return "", ErrKeyNotFound
+		}
+		return "", errors.New(resp.Error)
+	}
+
+	// 如果启用了缓存，更新缓存
+	if c.cache != nil {
+		c.cache.Set(key, resp.Value, c.config.CacheTTL)
+	}
+
+	return resp.Value, nil
 }
 
 // Set 设置键值对
@@ -134,7 +161,22 @@ func (c *Client) Set(key, value string) error {
 		return ErrInvalidArgument
 	}
 
-	// TODO: 实现实际设置逻辑
+	// 构建请求
+	req := request{
+		Type:  "SET",
+		Key:   key,
+		Value: value,
+	}
+
+	// 发送请求到一个可用连接
+	resp, err := c.doRequestWithRetry(req)
+	if err != nil {
+		return err
+	}
+
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
 
 	// 如果启用了缓存，更新缓存
 	if c.cache != nil {
@@ -150,7 +192,21 @@ func (c *Client) Delete(key string) error {
 		return ErrInvalidArgument
 	}
 
-	// TODO: 实现实际删除逻辑
+	// 构建请求
+	req := request{
+		Type: "DELETE",
+		Key:  key,
+	}
+
+	// 发送请求到一个可用连接
+	resp, err := c.doRequestWithRetry(req)
+	if err != nil {
+		return err
+	}
+
+	if !resp.Success {
+		return errors.New(resp.Error)
+	}
 
 	// 如果启用了缓存，从缓存中删除
 	if c.cache != nil {
@@ -158,6 +214,58 @@ func (c *Client) Delete(key string) error {
 	}
 
 	return nil
+}
+
+// 发送请求到一个可用连接并支持重试
+func (c *Client) doRequestWithRetry(req request) (*response, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.closed {
+		return nil, errors.New("客户端已关闭")
+	}
+
+	var lastErr error
+	for i := 0; i <= c.config.RetryCount; i++ {
+		// 选择一个可用连接
+		conn, err := c.getAvailableConnection()
+		if err != nil {
+			lastErr = err
+			time.Sleep(c.config.RetryInterval)
+			continue
+		}
+
+		// 发送请求
+		resp, err := conn.doRequest(req)
+		if err != nil {
+			lastErr = err
+			time.Sleep(c.config.RetryInterval)
+			continue
+		}
+
+		return resp, nil
+	}
+
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, ErrTimeout
+}
+
+// 获取一个可用的连接
+func (c *Client) getAvailableConnection() (*connection, error) {
+	if len(c.conns) == 0 {
+		return nil, ErrNoEndpoints
+	}
+
+	// 简单的轮询策略，在实际项目中可以改进为更复杂的负载均衡策略
+	for _, conn := range c.conns {
+		if conn.isHealthy() {
+			return conn, nil
+		}
+	}
+
+	return nil, ErrConnectionFailed
 }
 
 // 基本请求结构

@@ -70,7 +70,7 @@ static uint32_t _hash_fnv1a(const char *key) {
 
 // 使用新的哈希函数计算索引
 static int _hash(char *key, int size) {
-    if (!key) return -1;
+	if (!key) return -1;
     return _hash_fnv1a(key) % size;
 }
 
@@ -82,33 +82,33 @@ static float _load_factor(hashtable_t *hash) {
 
 // 创建哈希节点
 static hash_node_t *_create_node(char *key, char *value) {
-    hash_node_t *node = (hash_node_t*)kv_store_malloc(sizeof(hash_node_t));
-    if (!node) return NULL;
+	hash_node_t *node = (hash_node_t*)kv_store_malloc(sizeof(hash_node_t));
+	if (!node) return NULL;
 
 #if ENABLE_POINTER_KEY
-    node->key = kv_store_malloc(strlen(key) + 1);
-    if (!node->key) {
-        kv_store_free(node);
-        return NULL;
-    }
-    strcpy(node->key, key);
+	node->key = kv_store_malloc(strlen(key) + 1);
+	if (!node->key) {
+		kv_store_free(node);
+		return NULL;
+	}
+	strcpy(node->key, key);
 
-    node->value = kv_store_malloc(strlen(value) + 1);
-    if (!node->value) {
-        kv_store_free(node->key);
-        kv_store_free(node);
-        return NULL;
-    }
-    strcpy(node->value, value);
+	node->value = kv_store_malloc(strlen(value) + 1);
+	if (!node->value) {
+		kv_store_free(node->key);
+		kv_store_free(node);
+		return NULL;
+	}
+	strcpy(node->value, value);
 #else
-    strncpy(node->key, key, MAX_KEY_LEN);
-    strncpy(node->value, value, MAX_VALUE_LEN);
+	strncpy(node->key, key, MAX_KEY_LEN);
+	strncpy(node->value, value, MAX_VALUE_LEN);
 #endif
 
-    node->next = NULL;
+	node->next = NULL;
     node->node_type = NODE_TYPE_LIST;
 
-    return node;
+	return node;
 }
 
 // 中序遍历红黑树，收集所有节点
@@ -279,10 +279,10 @@ static int _rehash(hashtable_t *hash, int new_size) {
 
 // 初始化哈希表
 int init_hashtable(hashtable_t *hash) {
-    if (!hash) return -1;
-    
+	if (!hash) return -1;
+
     hash->max_slots = INITIAL_CAPACITY;
-    hash->count = 0;
+	hash->count = 0; 
     
     hash->buckets = (bucket_t*)kv_store_malloc(sizeof(bucket_t) * hash->max_slots);
     if (!hash->buckets) return -1;
@@ -293,14 +293,14 @@ int init_hashtable(hashtable_t *hash) {
         hash->buckets[i].is_tree = 0;
         hash->buckets[i].size = 0;
     }
-    
-    return 0;
+
+	return 0;
 }
 
 // 销毁哈希表
 void dest_hashtable(hashtable_t *hash) {
-    if (!hash) return;
-    
+	if (!hash) return;
+
     for (int i = 0; i < hash->max_slots; i++) {
         bucket_t *bucket = &hash->buckets[i];
         
@@ -338,7 +338,7 @@ void dest_hashtable(hashtable_t *hash) {
 
 // 向哈希表中插入键值对
 int put_kv_hashtable(hashtable_t *hash, char *key, char *value) {
-    if (!hash || !key || !value) return -1;
+	if (!hash || !key || !value) return -1;
 
     // 检查是否需要扩容
     _check_capacity(hash);
@@ -406,7 +406,7 @@ int put_kv_hashtable(hashtable_t *hash, char *key, char *value) {
         }
         
         // 创建新节点
-        hash_node_t *new_node = _create_node(key, value);
+	hash_node_t *new_node = _create_node(key, value);
         if (!new_node) return -1;
         
         // 插入到链表头部
@@ -422,15 +422,15 @@ int put_kv_hashtable(hashtable_t *hash, char *key, char *value) {
             _treeify_bucket(bucket);
         }
 #endif
-        
-        return 0;
+
+	return 0;
     }
 }
 
 // 从哈希表中获取值
 char *get_kv_hashtable(hashtable_t *hash, char *key) {
-    if (!hash || !key) return NULL;
-    
+	if (!hash || !key) return NULL;
+
     int idx = _hash(key, hash->max_slots);
     bucket_t *bucket = &hash->buckets[idx];
     
@@ -460,8 +460,8 @@ char *get_kv_hashtable(hashtable_t *hash, char *key) {
             current = current->next;
         }
     }
-    
-    return NULL;
+
+	return NULL;
 }
 
 // 统计哈希表中的键值对数量
@@ -502,9 +502,9 @@ int delete_kv_hashtable(hashtable_t *hash, char *key) {
                 _untreeify_bucket(bucket);
             }
 #endif
-            
-            return 0;
-        }
+
+		return 0;
+	}
     } else {
         // 链表情况
         hash_node_t *prev = NULL;
@@ -527,19 +527,19 @@ int delete_kv_hashtable(hashtable_t *hash, char *key) {
 #if ENABLE_POINTER_KEY
                 if (current->key) {
                     kv_store_free(current->key);
-                }
+	}
                 if (current->value) {
                     kv_store_free(current->value);
-                }
+	}
 #endif
                 kv_store_free(current);
                 
                 bucket->size--;
                 hash->count--;
-                
-                return 0;
-            }
-            
+
+	return 0;
+}
+
             prev = current;
             current = current->next;
         }
@@ -555,7 +555,7 @@ int exist_kv_hashtable(hashtable_t *hash, char *key) {
 
 // 对外接口: 创建哈希表
 int kv_store_hash_create(hashtable_t *hash) {
-    return init_hashtable(hash);
+	return init_hashtable(hash);
 }
 
 // 对外接口: 销毁哈希表
@@ -565,17 +565,17 @@ void kv_store_hash_destroy(hashtable_t *hash) {
 
 // 对外接口: 设置键值对
 int kvs_hash_set(hashtable_t *hash, char *key, char *value) {
-    return put_kv_hashtable(hash, key, value);
+	return put_kv_hashtable(hash, key, value);
 }
 
 // 对外接口: 获取值
 char *kvs_hash_get(hashtable_t *hash, char *key) {
-    return get_kv_hashtable(hash, key);
+	return get_kv_hashtable(hash, key);
 }
 
 // 对外接口: 删除键值对
 int kvs_hash_delete(hashtable_t *hash, char *key) {
-    return delete_kv_hashtable(hash, key);
+	return delete_kv_hashtable(hash, key);
 }
 
 // 对外接口: 修改键值对

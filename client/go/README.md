@@ -9,17 +9,22 @@
 - 客户端缓存
 - 自动重试和负载均衡
 - 多节点连接支持
+- 监控和健康检查
 
 ## 目录结构
 
 ```
 client/go/
-├── concord/         # 核心客户端包
-│   ├── client.go    # 基本客户端实现
+├── concord/           # 核心客户端包
+│   ├── client.go      # 基本客户端实现
 │   ├── transaction.go # 事务支持
-│   └── cache.go     # 客户端缓存
-├── examples/        # 使用示例
-└── README.md        # 本文件
+│   ├── cache.go       # 客户端缓存
+│   ├── connection.go  # 网络通信
+│   └── monitoring.go  # 监控与健康检查
+├── examples/          # 使用示例
+│   ├── basic_usage.go       # 基本使用示例
+│   └── monitoring_example.go# 监控功能示例
+└── README.md          # 本文件
 ```
 
 ## 快速开始
@@ -101,10 +106,27 @@ if err != nil {
 }
 ```
 
+### 监控和健康检查
+
+```go
+// 启用监控（每30秒检查一次）
+if err := client.EnableMonitoring(30 * time.Second); err != nil {
+    log.Printf("启用监控失败: %v", err)
+}
+
+// 获取集群健康状态
+stats, err := client.GetClusterHealth()
+if err != nil {
+    log.Printf("获取集群健康状态失败: %v", err)
+} else {
+    fmt.Printf("集群总节点数: %d\n", stats.TotalNodes)
+    fmt.Printf("健康节点数: %d\n", stats.HealthyNodes)
+    fmt.Printf("平均延迟: %dms\n", stats.AvgLatency)
+}
+```
+
 ## 待完成功能
 
-- 实现与存储引擎的实际通信
 - 实现节点发现和负载均衡
 - 添加更多事务隔离级别支持
-- 添加监控和健康检查功能
-- 增加批量操作支持 
+- 增加批量操作支持

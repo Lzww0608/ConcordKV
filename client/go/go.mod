@@ -1,3 +1,3 @@
-module github.com/concord/client/go
+module github.com/concordkv/client/go
 
 go 1.23.4

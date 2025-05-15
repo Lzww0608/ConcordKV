@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/concordkv/client/concord"
+	"github.com/concordkv/client/go/concord"
 )
 
 func main() {
