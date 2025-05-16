@@ -35,11 +35,13 @@ type Config struct {
 
 // Client ConcordKV客户端
 type Client struct {
-	config Config
-	mu     sync.RWMutex
-	conns  map[string]*connection
-	cache  *Cache
-	closed bool
+	config     Config
+	mu         sync.RWMutex
+	conns      map[string]*connection
+	cache      *Cache
+	closed     bool
+	discovery  *Discovery  // 节点发现服务
+	monitoring *Monitoring // 监控服务
 }
 
 // 内部连接结构定义已移至connection.go文件中
@@ -93,6 +95,25 @@ func (c *Client) initConnections() error {
 	return nil
 }
 
+// 初始化新发现的连接
+func (c *Client) initNewConnections(endpoints []string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, endpoint := range endpoints {
+		if _, exists := c.conns[endpoint]; !exists {
+			conn := newConnection(endpoint)
+			// 尝试连接
+			if err := conn.connect(); err != nil {
+				// 记录错误但继续处理其他连接
+				continue
+			}
+			c.conns[endpoint] = conn
+		}
+	}
+	return nil
+}
+
 // Close 关闭客户端及其所有连接
 func (c *Client) Close() error {
 	c.mu.Lock()
@@ -103,6 +124,16 @@ func (c *Client) Close() error {
 	}
 
 	c.closed = true
+
+	// 停止发现服务（如果启用）
+	if c.discovery != nil {
+		c.discovery.Stop()
+	}
+
+	// 停止监控服务（如果启用）
+	if c.monitoring != nil {
+		c.monitoring.Stop()
+	}
 
 	// 关闭所有连接
 	for _, conn := range c.conns {
@@ -256,6 +287,18 @@ func (c *Client) doRequestWithRetry(req request) (*response, error) {
 func (c *Client) getAvailableConnection() (*connection, error) {
 	if len(c.conns) == 0 {
 		return nil, ErrNoEndpoints
+	}
+
+	// 如果启用了节点发现和负载均衡，使用负载均衡策略选择节点
+	if c.discovery != nil {
+		endpoint, err := c.discovery.GetEndpoint()
+		if err != nil {
+			return nil, err
+		}
+
+		if conn, ok := c.conns[endpoint]; ok && conn.isHealthy() {
+			return conn, nil
+		}
 	}
 
 	// 简单的轮询策略，在实际项目中可以改进为更复杂的负载均衡策略

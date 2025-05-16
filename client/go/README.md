@@ -125,8 +125,51 @@ if err != nil {
 }
 ```
 
+## 节点发现和负载均衡
+
+ConcordKV Go客户端现在支持节点发现和负载均衡功能，能够自动发现集群中的新节点并智能地分配请求负载。
+
+### 特性
+
+- 多种节点发现方式：
+  - 静态配置
+  - DNS SRV记录
+  - 服务注册中心
+- 多种负载均衡策略：
+  - 随机选择
+  - 轮询（Round Robin）
+  - 加权负载均衡（根据节点性能）
+  - 最少连接
+  - 一致性哈希（特定键总是路由到相同节点）
+- 自动故障转移和恢复
+- 自动维护连接池
+
+### 使用示例
+
+```go
+// 创建客户端
+client, _ := concord.NewClient(config)
+
+// 启用监控（为负载均衡提供性能数据）
+client.EnableMonitoring(30 * time.Second)
+
+// 配置节点发现
+discoveryConfig := concord.DiscoveryConfig{
+    Type:            concord.DiscoveryTypeService,
+    ServiceRegistryURL: "http://registry.example.com",
+    ServiceName:     "concordkv",
+    RefreshInterval: 60 * time.Second,
+    BalanceStrategy: concord.BalanceWeighted,
+    AutoDiscover:    true,
+}
+
+// 启用节点发现和负载均衡
+client.EnableDiscovery(discoveryConfig)
+```
+
+完整示例请参见 `examples/discovery_example.go`。
+
 ## 待完成功能
 
-- 实现节点发现和负载均衡
 - 添加更多事务隔离级别支持
 - 增加批量操作支持
