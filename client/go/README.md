@@ -22,8 +22,11 @@ client/go/
 │   ├── connection.go  # 网络通信
 │   └── monitoring.go  # 监控与健康检查
 ├── examples/          # 使用示例
-│   ├── basic_usage.go       # 基本使用示例
+│   ├── basic_usage.go      # 基本使用示例
 │   └── monitoring_example.go# 监控功能示例
+├── cmd/               # 命令行工具
+│   └── tx_isolation_demo/  # 事务隔离级别演示
+│       └── main.go         # 演示程序入口
 └── README.md          # 本文件
 ```
 
@@ -106,6 +109,28 @@ if err != nil {
 }
 ```
 
+### 事务隔离级别
+
+```go
+// 创建一个使用可重复读隔离级别的事务
+txn := client.NewTransaction().WithIsolation(concord.IsolationRepeatableRead)
+
+// 创建一个使用串行化隔离级别的事务
+txn := client.NewTransaction().WithIsolation(concord.IsolationSerializable)
+
+// 创建一个使用读已提交隔离级别的事务
+txn := client.NewTransaction().WithIsolation(concord.IsolationReadCommitted)
+
+// 创建一个使用读未提交隔离级别的事务
+txn := client.NewTransaction().WithIsolation(concord.IsolationReadUncommitted)
+
+// 创建一个只读事务
+txn := client.NewTransaction().ReadOnly()
+
+// 设置事务超时（30秒）
+txn := client.NewTransaction().SetTimeout(30)
+```
+
 ### 监控和健康检查
 
 ```go
@@ -167,9 +192,9 @@ discoveryConfig := concord.DiscoveryConfig{
 client.EnableDiscovery(discoveryConfig)
 ```
 
-完整示例请参见 `examples/discovery_example.go`。
+完整示例请参见 `examples/discovery_example.go` 和 `cmd/tx_isolation_demo/main.go`。
 
 ## 待完成功能
 
-- 添加更多事务隔离级别支持
+- 添加更多事务隔离级别支持 ✓ 已完成
 - 增加批量操作支持
