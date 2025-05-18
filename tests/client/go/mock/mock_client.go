@@ -39,6 +39,31 @@ type Config struct {
 	CacheTTL    time.Duration // 缓存过期时间
 }
 
+// KeyValue 定义键值对
+type KeyValue struct {
+	Key   string
+	Value string
+}
+
+// BatchResult 表示批量操作的结果
+type BatchResult struct {
+	// 批量获取操作的结果
+	Values map[string]string
+	// 每个键的操作是否成功
+	Succeeded map[string]bool
+	// 每个键的错误信息（如果有）
+	Errors map[string]error
+}
+
+// NewBatchResult 创建一个新的批量操作结果
+func NewBatchResult() *BatchResult {
+	return &BatchResult{
+		Values:    make(map[string]string),
+		Succeeded: make(map[string]bool),
+		Errors:    make(map[string]error),
+	}
+}
+
 // Client 表示ConcordKV客户端
 type Client struct {
 	config Config
@@ -90,6 +115,118 @@ func (c *Client) Delete(key string) error {
 
 	delete(c.store, key)
 	return nil
+}
+
+// BatchGet 批量获取多个键的值
+func (c *Client) BatchGet(keys []string) (*BatchResult, error) {
+	if len(keys) == 0 {
+		return nil, errors.New("键列表不能为空")
+	}
+
+	result := NewBatchResult()
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+
+	// 并行处理所有键
+	for _, key := range keys {
+		wg.Add(1)
+		go func(k string) {
+			defer wg.Done()
+
+			// 获取单个键的值
+			value, err := c.Get(k)
+
+			// 使用互斥锁保护结果映射的并发访问
+			mutex.Lock()
+			defer mutex.Unlock()
+
+			if err != nil {
+				result.Succeeded[k] = false
+				result.Errors[k] = err
+			} else {
+				result.Values[k] = value
+				result.Succeeded[k] = true
+			}
+		}(key)
+	}
+
+	// 等待所有获取操作完成
+	wg.Wait()
+	return result, nil
+}
+
+// BatchSet 批量设置多个键值对
+func (c *Client) BatchSet(pairs []KeyValue) (*BatchResult, error) {
+	if len(pairs) == 0 {
+		return nil, errors.New("键值对列表不能为空")
+	}
+
+	result := NewBatchResult()
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+
+	// 并行处理所有键值对
+	for _, pair := range pairs {
+		wg.Add(1)
+		go func(kv KeyValue) {
+			defer wg.Done()
+
+			// 设置单个键值对
+			err := c.Set(kv.Key, kv.Value)
+
+			// 使用互斥锁保护结果映射的并发访问
+			mutex.Lock()
+			defer mutex.Unlock()
+
+			if err != nil {
+				result.Succeeded[kv.Key] = false
+				result.Errors[kv.Key] = err
+			} else {
+				result.Succeeded[kv.Key] = true
+			}
+		}(pair)
+	}
+
+	// 等待所有设置操作完成
+	wg.Wait()
+	return result, nil
+}
+
+// BatchDelete 批量删除多个键
+func (c *Client) BatchDelete(keys []string) (*BatchResult, error) {
+	if len(keys) == 0 {
+		return nil, errors.New("键列表不能为空")
+	}
+
+	result := NewBatchResult()
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+
+	// 并行处理所有键
+	for _, key := range keys {
+		wg.Add(1)
+		go func(k string) {
+			defer wg.Done()
+
+			// 删除单个键
+			err := c.Delete(k)
+
+			// 使用互斥锁保护结果映射的并发访问
+			mutex.Lock()
+			defer mutex.Unlock()
+
+			if err != nil {
+				result.Succeeded[k] = false
+				result.Errors[k] = err
+			} else {
+				result.Succeeded[k] = true
+			}
+		}(key)
+	}
+
+	// 等待所有删除操作完成
+	wg.Wait()
+	return result, nil
 }
 
 // EnableMonitoring 启用监控
@@ -320,6 +457,114 @@ func (tx *Transaction) Delete(key string) error {
 	tx.writeSet[key] = ""
 
 	return nil
+}
+
+// BatchGet 在事务中批量获取多个键的值
+func (tx *Transaction) BatchGet(keys []string) (*BatchResult, error) {
+	if tx.status != "active" {
+		return nil, errors.New("事务已关闭")
+	}
+
+	if tx.isTimeout() {
+		tx.status = "aborted"
+		return nil, errors.New("事务超时")
+	}
+
+	if len(keys) == 0 {
+		return nil, errors.New("键列表不能为空")
+	}
+
+	result := NewBatchResult()
+
+	// 在事务中顺序处理所有键
+	for _, key := range keys {
+		// 获取单个键的值
+		value, err := tx.Get(key)
+
+		if err != nil {
+			result.Succeeded[key] = false
+			result.Errors[key] = err
+		} else {
+			result.Values[key] = value
+			result.Succeeded[key] = true
+		}
+	}
+
+	return result, nil
+}
+
+// BatchSet 在事务中批量设置多个键值对
+func (tx *Transaction) BatchSet(pairs []KeyValue) (*BatchResult, error) {
+	if tx.status != "active" {
+		return nil, errors.New("事务已关闭")
+	}
+
+	if tx.isTimeout() {
+		tx.status = "aborted"
+		return nil, errors.New("事务超时")
+	}
+
+	if tx.readOnly {
+		return nil, errors.New("只读事务不允许写操作")
+	}
+
+	if len(pairs) == 0 {
+		return nil, errors.New("键值对列表不能为空")
+	}
+
+	result := NewBatchResult()
+
+	// 在事务中顺序处理所有键值对
+	for _, pair := range pairs {
+		// 设置单个键值对
+		err := tx.Set(pair.Key, pair.Value)
+
+		if err != nil {
+			result.Succeeded[pair.Key] = false
+			result.Errors[pair.Key] = err
+		} else {
+			result.Succeeded[pair.Key] = true
+		}
+	}
+
+	return result, nil
+}
+
+// BatchDelete 在事务中批量删除多个键
+func (tx *Transaction) BatchDelete(keys []string) (*BatchResult, error) {
+	if tx.status != "active" {
+		return nil, errors.New("事务已关闭")
+	}
+
+	if tx.isTimeout() {
+		tx.status = "aborted"
+		return nil, errors.New("事务超时")
+	}
+
+	if tx.readOnly {
+		return nil, errors.New("只读事务不允许写操作")
+	}
+
+	if len(keys) == 0 {
+		return nil, errors.New("键列表不能为空")
+	}
+
+	result := NewBatchResult()
+
+	// 在事务中顺序处理所有键
+	for _, key := range keys {
+		// 删除单个键
+		err := tx.Delete(key)
+
+		if err != nil {
+			result.Succeeded[key] = false
+			result.Errors[key] = err
+		} else {
+			result.Succeeded[key] = true
+		}
+	}
+
+	return result, nil
 }
 
 // Commit 提交事务

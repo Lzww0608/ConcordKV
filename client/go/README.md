@@ -197,4 +197,85 @@ client.EnableDiscovery(discoveryConfig)
 ## 待完成功能
 
 - 添加更多事务隔离级别支持 ✓ 已完成
-- 增加批量操作支持
+- 增加批量操作支持 ✓ 已完成
+
+## 批量操作
+
+ConcordKV Go客户端支持批量操作，可以一次性处理多个键或键值对，提高性能并简化代码。
+
+### 批量获取
+
+```go
+// 批量获取多个键的值
+keys := []string{"user:1", "user:2", "user:3"}
+result, err := client.BatchGet(keys)
+if err != nil {
+    log.Printf("批量获取失败: %v", err)
+    return
+}
+
+// 处理结果
+for key, value := range result.Values {
+    fmt.Printf("%s = %s\n", key, value)
+}
+
+// 检查失败的操作
+for key, succeeded := range result.Succeeded {
+    if !succeeded {
+        fmt.Printf("获取 %s 失败: %v\n", key, result.Errors[key])
+    }
+}
+```
+
+### 批量设置
+
+```go
+// 准备批量设置的键值对
+pairs := []concord.KeyValue{
+    {Key: "user:1", Value: "张三"},
+    {Key: "user:2", Value: "李四"},
+    {Key: "user:3", Value: "王五"},
+}
+
+// 批量设置
+result, err := client.BatchSet(pairs)
+if err != nil {
+    log.Printf("批量设置失败: %v", err)
+    return
+}
+
+// 检查结果
+for key, succeeded := range result.Succeeded {
+    if !succeeded {
+        fmt.Printf("设置 %s 失败: %v\n", key, result.Errors[key])
+    }
+}
+```
+
+### 事务中的批量操作
+
+```go
+// 创建事务
+tx := client.NewTransaction()
+
+// 在事务中批量获取
+getResult, err := tx.BatchGet([]string{"account:1", "account:2"})
+if err != nil {
+    tx.Rollback()
+    return
+}
+
+// 在事务中批量设置
+pairs := []concord.KeyValue{
+    {Key: "account:1", Value: "900"},
+    {Key: "account:2", Value: "2100"},
+}
+setResult, err := tx.BatchSet(pairs)
+if err != nil {
+    tx.Rollback()
+    return
+}
+
+// 提交事务
+tx.Commit()
+```
