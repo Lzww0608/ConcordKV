@@ -3,6 +3,7 @@
  * @brief 性能基准测试实现
  */
 
+#define _GNU_SOURCE  // 为了使用strdup等函数
 #include "testing.h"
 #include <stdio.h>
 #include <stdlib.h>

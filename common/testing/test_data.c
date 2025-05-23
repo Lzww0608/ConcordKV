@@ -1,15 +1,16 @@
 /**
  * @file test_data.c
- * @brief 测试数据生成实现
+ * @brief 测试数据生成器实现
  */
 
+#define _GNU_SOURCE  // 为了使用strdup等函数
 #include "testing.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
 #include <math.h>
+#include <unistd.h>  // 为了使用usleep
 
 // 测试数据生成器结构
 struct concord_test_data_gen_t {
@@ -52,12 +53,20 @@ static char *generate_random_string(size_t min_len, size_t max_len, const char *
 
 // 生成模式字符串
 static char *generate_pattern_string(const char *pattern, size_t len, int index) {
-    if (!pattern) return generate_random_string(len, len, DEFAULT_CHARSET);
+    // 严格的参数验证
+    if (!pattern || len == 0) {
+        return generate_random_string(len > 0 ? len : 16, len > 0 ? len : 16, DEFAULT_CHARSET);
+    }
     
     char *str = malloc(len + 1);
     if (!str) return NULL;
     
     size_t pattern_len = strlen(pattern);
+    if (pattern_len == 0) {
+        free(str);
+        return generate_random_string(len, len, DEFAULT_CHARSET);
+    }
+    
     size_t pos = 0;
     
     for (size_t i = 0; i < pattern_len && pos < len; i++) {
@@ -205,16 +214,41 @@ static int initialize_cache(concord_test_data_gen_t *generator) {
 concord_test_data_gen_t *concord_test_data_gen_create(concord_test_data_config_t *config) {
     if (!config) return NULL;
     
+    // 验证配置参数的合理性
+    if (config->total_keys == 0 || 
+        config->key_min_size == 0 || config->key_max_size == 0 ||
+        config->value_min_size == 0 || config->value_max_size == 0 ||
+        config->key_min_size > config->key_max_size ||
+        config->value_min_size > config->value_max_size) {
+        return NULL;
+    }
+    
     concord_test_data_gen_t *generator = calloc(1, sizeof(concord_test_data_gen_t));
     if (!generator) return NULL;
     
     // 复制配置
     generator->config = *config;
-    if (config->key_pattern) {
+    
+    // 安全地复制字符串指针
+    if (config->key_pattern && strlen(config->key_pattern) > 0) {
         generator->config.key_pattern = strdup(config->key_pattern);
+        if (!generator->config.key_pattern) {
+            free(generator);
+            return NULL;
+        }
+    } else {
+        generator->config.key_pattern = NULL;
     }
-    if (config->value_pattern) {
+    
+    if (config->value_pattern && strlen(config->value_pattern) > 0) {
         generator->config.value_pattern = strdup(config->value_pattern);
+        if (!generator->config.value_pattern) {
+            free(generator->config.key_pattern);
+            free(generator);
+            return NULL;
+        }
+    } else {
+        generator->config.value_pattern = NULL;
     }
     
     // 设置随机种子

@@ -1,8 +1,9 @@
 /**
  * @file fault_inject.c
- * @brief 故障注入实现
+ * @brief 故障注入器实现
  */
 
+#define _GNU_SOURCE  // 为了使用strdup等函数
 #include "testing.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -611,11 +611,101 @@ int concord_config_add_array_item(concord_config_t *cfg, const char *key) {
     return item->value.array.count - 1;  // 返回新项的索引
 }
 
+// 递归合并配置项
+static int merge_config_item(config_item_t *dest, config_item_t *src) {
+    if (!dest || !src) return -1;
+    
+    // 如果src是对象，递归合并
+    if (src->type == CONFIG_TYPE_OBJECT) {
+        // 确保dest也是对象
+        if (dest->type != CONFIG_TYPE_OBJECT) {
+            // 清理旧数据
+            if (dest->type == CONFIG_TYPE_STRING && dest->value.str_val) {
+                free(dest->value.str_val);
+                dest->value.str_val = NULL;
+            }
+            dest->type = CONFIG_TYPE_OBJECT;
+            dest->value.object.count = 0;
+            dest->value.object.items = NULL;
+        }
+        
+        // 遍历src的所有子项
+        for (int i = 0; i < src->value.object.count; i++) {
+            config_item_t *src_child = src->value.object.items[i];
+            if (!src_child || !src_child->key) continue;
+            
+            // 在dest中查找对应的子项
+            config_item_t *dest_child = NULL;
+            for (int j = 0; j < dest->value.object.count; j++) {
+                if (dest->value.object.items[j] && dest->value.object.items[j]->key &&
+                    strcmp(dest->value.object.items[j]->key, src_child->key) == 0) {
+                    dest_child = dest->value.object.items[j];
+                    break;
+                }
+            }
+            
+            // 如果不存在，创建新的子项
+            if (!dest_child) {
+                dest_child = create_config_item(src_child->key, src_child->type);
+                if (!dest_child) return -1;
+                
+                dest_child->parent = dest;
+                
+                // 扩展dest的子项数组
+                config_item_t **new_items = (config_item_t **)realloc(
+                    dest->value.object.items,
+                    (dest->value.object.count + 1) * sizeof(config_item_t *)
+                );
+                if (!new_items) {
+                    free_config_item(dest_child);
+                    return -1;
+                }
+                
+                dest->value.object.items = new_items;
+                dest->value.object.items[dest->value.object.count] = dest_child;
+                dest->value.object.count++;
+            }
+            
+            // 递归合并或复制值
+            if (src_child->type == CONFIG_TYPE_OBJECT) {
+                if (merge_config_item(dest_child, src_child) < 0) return -1;
+            } else {
+                // 直接复制值
+                dest_child->type = src_child->type;
+                switch (src_child->type) {
+                    case CONFIG_TYPE_INT:
+                        dest_child->value.int_val = src_child->value.int_val;
+                        break;
+                    case CONFIG_TYPE_FLOAT:
+                        dest_child->value.float_val = src_child->value.float_val;
+                        break;
+                    case CONFIG_TYPE_BOOL:
+                        dest_child->value.bool_val = src_child->value.bool_val;
+                        break;
+                    case CONFIG_TYPE_STRING:
+                        if (dest_child->value.str_val) {
+                            free(dest_child->value.str_val);
+                        }
+                        dest_child->value.str_val = src_child->value.str_val ? strdup(src_child->value.str_val) : NULL;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+    
+    return 0;
+}
+
 // 合并配置
 int concord_config_merge(concord_config_t *cfg, concord_config_t *src) {
-    if (!cfg || !src) return -1;
+    if (!cfg || !src || !cfg->root || !src->root) return -1;
     
-    // TODO: 实现配置合并逻辑
+    // 递归合并配置项
+    if (merge_config_item(cfg->root, src->root) < 0) {
+        return -1;
+    }
     
     cfg->modified = 1;
     return 0;
