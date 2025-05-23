@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "util.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <uuid/uuid.h>
+#include <limits.h>
 
 // 字符串操作函数
 
@@ -544,42 +546,4 @@ void *concord_util_memdup(const void *src, size_t n) {
         memcpy(dest, src, n);
     }
     return dest;
-}
-
-// 日志函数
-
-// 日志级别名称
-static const char *log_level_names[] = {
-    "DEBUG",
-    "INFO",
-    "WARN",
-    "ERROR",
-    "FATAL"
-};
-
-// 日志输出函数
-void concord_util_log(concord_log_level_t level, const char *fmt, ...) {
-    if (level < CONCORD_LOG_DEBUG || level > CONCORD_LOG_FATAL) {
-        return;
-    }
-    
-    // 获取当前时间
-    time_t now;
-    struct tm tm_info;
-    char time_str[20];
-    
-    time(&now);
-    localtime_r(&now, &tm_info);
-    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-    
-    // 输出日志前缀
-    fprintf(stderr, "[%s] [%s] ", time_str, log_level_names[level]);
-    
-    // 输出日志内容
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
-    va_end(args);
-    
-    fprintf(stderr, "\n");
 } 

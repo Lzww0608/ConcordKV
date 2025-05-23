@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "network.h"
 #include "util.h"
 #include <stdio.h>
@@ -9,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>

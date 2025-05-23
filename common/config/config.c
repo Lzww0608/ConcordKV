@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -245,6 +246,56 @@ concord_config_t *concord_config_load(const char *filename) {
     return cfg;
 }
 
+// 写入配置项的递归函数
+static void write_item_to_file(FILE *f, config_item_t *item, int depth) {
+    if (!item) return;
+    
+    // 缩进
+    for (int i = 0; i < depth; i++) fprintf(f, "  ");
+    
+    if (item->key) {
+        fprintf(f, "\"%s\": ", item->key);
+    }
+    
+    switch (item->type) {
+        case CONFIG_TYPE_INT:
+            fprintf(f, "%lld", (long long)item->value.int_val);
+            break;
+        case CONFIG_TYPE_FLOAT:
+            fprintf(f, "%.6f", item->value.float_val);
+            break;
+        case CONFIG_TYPE_BOOL:
+            fprintf(f, "%s", item->value.bool_val ? "true" : "false");
+            break;
+        case CONFIG_TYPE_STRING:
+            fprintf(f, "\"%s\"", item->value.str_val ? item->value.str_val : "");
+            break;
+        case CONFIG_TYPE_ARRAY:
+            fprintf(f, "[\n");
+            for (int i = 0; i < item->value.array.count; i++) {
+                write_item_to_file(f, item->value.array.items[i], depth + 1);
+                if (i < item->value.array.count - 1) fprintf(f, ",");
+                fprintf(f, "\n");
+            }
+            for (int i = 0; i < depth; i++) fprintf(f, "  ");
+            fprintf(f, "]");
+            break;
+        case CONFIG_TYPE_OBJECT:
+            fprintf(f, "{\n");
+            for (int i = 0; i < item->value.object.count; i++) {
+                write_item_to_file(f, item->value.object.items[i], depth + 1);
+                if (i < item->value.object.count - 1) fprintf(f, ",");
+                fprintf(f, "\n");
+            }
+            for (int i = 0; i < depth; i++) fprintf(f, "  ");
+            fprintf(f, "}");
+            break;
+        default:
+            fprintf(f, "null");
+            break;
+    }
+}
+
 // 保存配置到文件
 int concord_config_save(concord_config_t *cfg, const char *filename) {
     if (!cfg || !filename) return -1;
@@ -252,65 +303,11 @@ int concord_config_save(concord_config_t *cfg, const char *filename) {
     FILE *file = fopen(filename, "w");
     if (!file) return -1;
     
-    // 递归函数，输出配置项
-    typedef void (*write_item_func)(FILE *f, config_item_t *item, int depth);
-    
-    write_item_func write_item = NULL;
-    write_item = (write_item_func)NULL;
-    write_item = (write_item_func)^(FILE *f, config_item_t *item, int depth) {
-        if (!item) return;
-        
-        // 缩进
-        for (int i = 0; i < depth; i++) fprintf(f, "  ");
-        
-        if (item->key) {
-            fprintf(f, "\"%s\": ", item->key);
-        }
-        
-        switch (item->type) {
-            case CONFIG_TYPE_INT:
-                fprintf(f, "%lld", (long long)item->value.int_val);
-                break;
-            case CONFIG_TYPE_FLOAT:
-                fprintf(f, "%.6f", item->value.float_val);
-                break;
-            case CONFIG_TYPE_BOOL:
-                fprintf(f, "%s", item->value.bool_val ? "true" : "false");
-                break;
-            case CONFIG_TYPE_STRING:
-                fprintf(f, "\"%s\"", item->value.str_val ? item->value.str_val : "");
-                break;
-            case CONFIG_TYPE_ARRAY:
-                fprintf(f, "[\n");
-                for (int i = 0; i < item->value.array.count; i++) {
-                    write_item(f, item->value.array.items[i], depth + 1);
-                    if (i < item->value.array.count - 1) fprintf(f, ",");
-                    fprintf(f, "\n");
-                }
-                for (int i = 0; i < depth; i++) fprintf(f, "  ");
-                fprintf(f, "]");
-                break;
-            case CONFIG_TYPE_OBJECT:
-                fprintf(f, "{\n");
-                for (int i = 0; i < item->value.object.count; i++) {
-                    write_item(f, item->value.object.items[i], depth + 1);
-                    if (i < item->value.object.count - 1) fprintf(f, ",");
-                    fprintf(f, "\n");
-                }
-                for (int i = 0; i < depth; i++) fprintf(f, "  ");
-                fprintf(f, "}");
-                break;
-            default:
-                fprintf(f, "null");
-                break;
-        }
-    };
-    
     fprintf(file, "{\n");
     
     // 输出所有根对象的子项
     for (int i = 0; i < cfg->root->value.object.count; i++) {
-        write_item(file, cfg->root->value.object.items[i], 1);
+        write_item_to_file(file, cfg->root->value.object.items[i], 1);
         if (i < cfg->root->value.object.count - 1) fprintf(file, ",");
         fprintf(file, "\n");
     }
@@ -678,6 +675,51 @@ int concord_config_load_env(concord_config_t *cfg, const char *prefix) {
     return 0;
 }
 
+// 打印配置项的递归函数
+static void print_item_recursive(config_item_t *item, int depth) {
+    if (!item) return;
+    
+    for (int i = 0; i < depth; i++) printf("  ");
+    
+    if (item->key) {
+        printf("%s: ", item->key);
+    }
+    
+    switch (item->type) {
+        case CONFIG_TYPE_NONE:
+            printf("null\n");
+            break;
+        case CONFIG_TYPE_INT:
+            printf("%lld\n", (long long)item->value.int_val);
+            break;
+        case CONFIG_TYPE_FLOAT:
+            printf("%.6f\n", item->value.float_val);
+            break;
+        case CONFIG_TYPE_BOOL:
+            printf("%s\n", item->value.bool_val ? "true" : "false");
+            break;
+        case CONFIG_TYPE_STRING:
+            printf("\"%s\"\n", item->value.str_val ? item->value.str_val : "");
+            break;
+        case CONFIG_TYPE_ARRAY:
+            printf("[\n");
+            for (int i = 0; i < item->value.array.count; i++) {
+                print_item_recursive(item->value.array.items[i], depth + 1);
+            }
+            for (int i = 0; i < depth; i++) printf("  ");
+            printf("]\n");
+            break;
+        case CONFIG_TYPE_OBJECT:
+            printf("{\n");
+            for (int i = 0; i < item->value.object.count; i++) {
+                print_item_recursive(item->value.object.items[i], depth + 1);
+            }
+            for (int i = 0; i < depth; i++) printf("  ");
+            printf("}\n");
+            break;
+    }
+}
+
 // 打印配置项
 void concord_config_print(concord_config_t *cfg) {
     if (!cfg) return;
@@ -686,53 +728,5 @@ void concord_config_print(concord_config_t *cfg) {
            cfg->filename ? "from " : "",
            cfg->filename ? cfg->filename : "");
     
-    // 递归打印函数
-    typedef void (*print_item_func)(config_item_t *item, int depth);
-    
-    print_item_func print_item = NULL;
-    print_item = (print_item_func)^(config_item_t *item, int depth) {
-        if (!item) return;
-        
-        for (int i = 0; i < depth; i++) printf("  ");
-        
-        if (item->key) {
-            printf("%s: ", item->key);
-        }
-        
-        switch (item->type) {
-            case CONFIG_TYPE_NONE:
-                printf("null\n");
-                break;
-            case CONFIG_TYPE_INT:
-                printf("%lld\n", (long long)item->value.int_val);
-                break;
-            case CONFIG_TYPE_FLOAT:
-                printf("%.6f\n", item->value.float_val);
-                break;
-            case CONFIG_TYPE_BOOL:
-                printf("%s\n", item->value.bool_val ? "true" : "false");
-                break;
-            case CONFIG_TYPE_STRING:
-                printf("\"%s\"\n", item->value.str_val ? item->value.str_val : "");
-                break;
-            case CONFIG_TYPE_ARRAY:
-                printf("[\n");
-                for (int i = 0; i < item->value.array.count; i++) {
-                    print_item(item->value.array.items[i], depth + 1);
-                }
-                for (int i = 0; i < depth; i++) printf("  ");
-                printf("]\n");
-                break;
-            case CONFIG_TYPE_OBJECT:
-                printf("{\n");
-                for (int i = 0; i < item->value.object.count; i++) {
-                    print_item(item->value.object.items[i], depth + 1);
-                }
-                for (int i = 0; i < depth; i++) printf("  ");
-                printf("}\n");
-                break;
-        }
-    };
-    
-    print_item(cfg->root, 0);
+    print_item_recursive(cfg->root, 0);
 } 

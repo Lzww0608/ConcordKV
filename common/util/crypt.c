@@ -15,6 +15,60 @@
 
 #include "crypt.h"
 
+// OpenSSL版本兼容性
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+// 为旧版本OpenSSL添加缺失的函数
+#define EVP_CIPHER_key_length(cipher) ((cipher)->key_len)
+#define EVP_CIPHER_iv_length(cipher) ((cipher)->iv_len)
+#define EVP_MD_size(md) ((md)->md_size)
+
+// 兼容性函数实现
+static EVP_CIPHER_CTX *EVP_CIPHER_CTX_new(void) {
+    EVP_CIPHER_CTX *ctx = malloc(sizeof(EVP_CIPHER_CTX));
+    if (ctx) {
+        EVP_CIPHER_CTX_init(ctx);
+    }
+    return ctx;
+}
+
+static void EVP_CIPHER_CTX_free(EVP_CIPHER_CTX *ctx) {
+    if (ctx) {
+        EVP_CIPHER_CTX_cleanup(ctx);
+        free(ctx);
+    }
+}
+
+static EVP_MD_CTX *EVP_MD_CTX_new(void) {
+    EVP_MD_CTX *ctx = malloc(sizeof(EVP_MD_CTX));
+    if (ctx) {
+        EVP_MD_CTX_init(ctx);
+    }
+    return ctx;
+}
+
+static void EVP_MD_CTX_free(EVP_MD_CTX *ctx) {
+    if (ctx) {
+        EVP_MD_CTX_cleanup(ctx);
+        free(ctx);
+    }
+}
+
+static HMAC_CTX *HMAC_CTX_new(void) {
+    HMAC_CTX *ctx = malloc(sizeof(HMAC_CTX));
+    if (ctx) {
+        HMAC_CTX_init(ctx);
+    }
+    return ctx;
+}
+
+static void HMAC_CTX_free(HMAC_CTX *ctx) {
+    if (ctx) {
+        HMAC_CTX_cleanup(ctx);
+        free(ctx);
+    }
+}
+#endif
+
 // 全局初始化标志
 static int g_crypt_initialized = 0;
 
@@ -278,13 +332,18 @@ int concord_crypt_encrypt(concord_crypt_context_t *ctx, const uint8_t *in, size_
 
 // 解密数据
 int concord_crypt_decrypt(concord_crypt_context_t *ctx, const uint8_t *in, size_t in_len, uint8_t *out, size_t *out_len, const uint8_t *iv, size_t iv_len) {
-    if (!ctx || !ctx->ctx || !in || !out || !out_len || !iv) {
+    if (!ctx || !in || !out || !out_len || !iv) {
         return -1;
     }
     
-    const EVP_CIPHER *cipher = get_cipher(ctx->algorithm);
+    crypt_context_internal_t *internal_ctx = (crypt_context_internal_t *)ctx;
+    if (!internal_ctx->ctx) {
+        return -1;
+    }
+    
+    const EVP_CIPHER *cipher = get_cipher(internal_ctx->algorithm);
     if (!cipher) {
-        fprintf(stderr, "Unknown cipher algorithm: %d\n", ctx->algorithm);
+        fprintf(stderr, "Unknown cipher algorithm: %d\n", internal_ctx->algorithm);
         return -1;
     }
     
@@ -295,13 +354,13 @@ int concord_crypt_decrypt(concord_crypt_context_t *ctx, const uint8_t *in, size_
     }
     
     // 初始化解密
-    if (!EVP_DecryptInit_ex(ctx->ctx, cipher, NULL, NULL, NULL)) {
+    if (!EVP_DecryptInit_ex(internal_ctx->ctx, cipher, NULL, NULL, NULL)) {
         print_openssl_error("EVP_DecryptInit_ex failed");
         return -1;
     }
     
     // 设置密钥和IV
-    if (!EVP_DecryptInit_ex(ctx->ctx, NULL, NULL, ctx->key, iv)) {
+    if (!EVP_DecryptInit_ex(internal_ctx->ctx, NULL, NULL, internal_ctx->key, iv)) {
         print_openssl_error("EVP_DecryptInit_ex failed");
         return -1;
     }
@@ -310,13 +369,13 @@ int concord_crypt_decrypt(concord_crypt_context_t *ctx, const uint8_t *in, size_
     int final_len = 0;
     
     // 解密数据
-    if (!EVP_DecryptUpdate(ctx->ctx, out, &out_len_int, in, in_len)) {
+    if (!EVP_DecryptUpdate(internal_ctx->ctx, out, &out_len_int, in, in_len)) {
         print_openssl_error("EVP_DecryptUpdate failed");
         return -1;
     }
     
     // 完成解密
-    if (!EVP_DecryptFinal_ex(ctx->ctx, out + out_len_int, &final_len)) {
+    if (!EVP_DecryptFinal_ex(internal_ctx->ctx, out + out_len_int, &final_len)) {
         print_openssl_error("EVP_DecryptFinal_ex failed");
         return -1;
     }

@@ -85,21 +85,4 @@ float concord_util_get_process_cpu();
 // 内存操作
 void *concord_util_memdup(const void *src, size_t n);
 
-// 日志相关 (简单接口，详细日志功能另外实现)
-typedef enum {
-    CONCORD_LOG_DEBUG = 0,
-    CONCORD_LOG_INFO,
-    CONCORD_LOG_WARN,
-    CONCORD_LOG_ERROR,
-    CONCORD_LOG_FATAL
-} concord_log_level_t;
-
-void concord_util_log(concord_log_level_t level, const char *fmt, ...);
-
-#define concord_util_debug(fmt, ...) concord_util_log(CONCORD_LOG_DEBUG, fmt, ##__VA_ARGS__)
-#define concord_util_info(fmt, ...) concord_util_log(CONCORD_LOG_INFO, fmt, ##__VA_ARGS__)
-#define concord_util_warn(fmt, ...) concord_util_log(CONCORD_LOG_WARN, fmt, ##__VA_ARGS__)
-#define concord_util_error(fmt, ...) concord_util_log(CONCORD_LOG_ERROR, fmt, ##__VA_ARGS__)
-#define concord_util_fatal(fmt, ...) concord_util_log(CONCORD_LOG_FATAL, fmt, ##__VA_ARGS__)
-
 #endif /* __CONCORD_UTIL_H__ */ 

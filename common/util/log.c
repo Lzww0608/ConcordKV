@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "log.h"
 #include "util.h"
 #include <stdio.h>
@@ -9,6 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <syslog.h>
+#include <limits.h>
 
 // 控制台颜色
 #define COLOR_RESET   "\x1b[0m"
