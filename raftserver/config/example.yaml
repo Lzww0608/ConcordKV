@@ -1,0 +1,44 @@
+# ConcordKV Raft 服务器配置示例
+
+server:
+  # 节点标识符
+  nodeId: "node1"
+  
+  # Raft协议监听地址
+  listenAddr: ":8080"
+  
+  # API服务器监听地址  
+  apiAddr: ":8081"
+  
+  # 选举超时时间（毫秒）
+  electionTimeout: 5000
+  
+  # 心跳间隔（毫秒）
+  heartbeatInterval: 1000
+  
+  # 单次追加的最大日志条目数
+  maxLogEntries: 100
+  
+  # 触发快照的日志条目数阈值
+  snapshotThreshold: 1000
+  
+  # 集群节点列表
+  peers:
+    - "node1:localhost:8080"
+    - "node2:localhost:8082" 
+    - "node3:localhost:8084"
+
+# 日志配置
+logging:
+  level: "info"
+  file: "logs/raft.log"
+  maxSize: 100  # MB
+  maxBackups: 3
+  compress: true
+
+# 存储配置
+storage:
+  type: "memory"  # 内存存储
+  # type: "file"    # 文件存储
+  # dataDir: "data/"
+  # syncWrites: true 
