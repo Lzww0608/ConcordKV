@@ -78,16 +78,21 @@ func createServerFromFlags() (*server.Server, error) {
 		return nil, fmt.Errorf("必须指定节点ID")
 	}
 
+	listenAddr := getOrDefault(*listenAddr, ":8080")
+
 	config := &server.ServerConfig{
 		NodeID:            raft.NodeID(*nodeID),
-		ListenAddr:        getOrDefault(*listenAddr, ":8080"),
-		APIAddr:           getOrDefault(*apiAddr, ":8081"),
+		ListenAddr:        listenAddr,
+		APIAddr:           getOrDefault(*apiAddr, "127.0.0.1:8081"),
 		ElectionTimeout:   5 * time.Second,
 		HeartbeatInterval: 1 * time.Second,
 		MaxLogEntries:     100,
 		SnapshotThreshold: 1000,
 		Peers:             make(map[raft.NodeID]string),
 	}
+
+	// 在单节点模式下，将自己添加到peers列表
+	config.Peers[raft.NodeID(*nodeID)] = listenAddr
 
 	// 解析peers参数
 	if *peers != "" {

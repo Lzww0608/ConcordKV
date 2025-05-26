@@ -317,8 +317,17 @@ func (n *Node) Propose(data []byte) error {
 
 	n.logger.Printf("提议新的日志条目，索引: %d", entry.Index)
 
-	// 立即复制到跟随者
-	go n.sendHeartbeats()
+	// 在单节点集群中，立即提交并应用日志
+	if len(n.config.Servers) == 1 {
+		n.commitIndex = entry.Index
+		n.logger.Printf("单节点集群，立即提交日志条目 %d", entry.Index)
+
+		// 异步应用日志
+		go n.applyCommittedLogs()
+	} else {
+		// 多节点集群，复制到跟随者
+		go n.sendHeartbeats()
+	}
 
 	return nil
 }

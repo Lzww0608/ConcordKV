@@ -103,6 +103,14 @@ func NewServerWithConfig(config *ServerConfig) (*Server, error) {
 		})
 	}
 
+	// 如果没有配置其他节点，添加自己作为单节点集群
+	if len(raftConfig.Servers) == 0 {
+		raftConfig.Servers = append(raftConfig.Servers, raft.Server{
+			ID:      config.NodeID,
+			Address: config.ListenAddr,
+		})
+	}
+
 	// 创建Raft节点
 	raftNode, err := raft.NewNode(raftConfig, transport, storage, stateMachine)
 	if err != nil {
@@ -200,12 +208,16 @@ func (s *Server) startAPIServer() error {
 	}
 
 	go func() {
+		s.logger.Printf("API服务器开始监听 %s", s.config.APIAddr)
 		if err := s.apiServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			s.logger.Printf("API服务器错误: %v", err)
 		}
 	}()
 
 	s.logger.Printf("API服务器启动在 %s", s.config.APIAddr)
+
+	// 等待一小段时间确保服务器启动
+	time.Sleep(time.Millisecond * 100)
 
 	return nil
 }
@@ -386,7 +398,19 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.logger.Printf("处理状态查询请求")
+
+	s.logger.Printf("获取Raft指标...")
 	metrics := s.raftNode.GetMetrics()
+	s.logger.Printf("获取Raft指标完成")
+
+	s.logger.Printf("检查是否为领导者...")
+	isLeader := s.raftNode.IsLeader()
+	s.logger.Printf("检查是否为领导者完成: %v", isLeader)
+
+	s.logger.Printf("获取存储大小...")
+	storageSize := s.stateMachine.Size()
+	s.logger.Printf("获取存储大小完成: %d", storageSize)
 
 	response := map[string]interface{}{
 		"nodeId":       s.config.NodeID,
@@ -396,12 +420,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		"lastLogIndex": metrics.LastLogIndex,
 		"commitIndex":  metrics.CommitIndex,
 		"lastApplied":  metrics.LastApplied,
-		"isLeader":     s.raftNode.IsLeader(),
-		"storageSize":  s.stateMachine.Size(),
+		"isLeader":     isLeader,
+		"storageSize":  storageSize,
 	}
 
+	s.logger.Printf("发送响应...")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+	s.logger.Printf("状态查询请求处理完成")
 }
 
 // handleMetrics 处理指标查询请求

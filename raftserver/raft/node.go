@@ -167,8 +167,25 @@ func (n *Node) run() {
 			return
 		case <-n.electionTimer.C:
 			n.handleElectionTimeout()
-		case <-n.heartbeatTicker.C:
-			n.sendHeartbeats()
+		default:
+			// 检查心跳定时器是否存在
+			if n.heartbeatTicker != nil {
+				select {
+				case <-n.shutdownCh:
+					return
+				case <-n.ctx.Done():
+					return
+				case <-n.electionTimer.C:
+					n.handleElectionTimeout()
+				case <-n.heartbeatTicker.C:
+					n.sendHeartbeats()
+				case <-time.After(time.Millisecond * 10):
+					// 避免阻塞
+				}
+			} else {
+				// 如果没有心跳定时器，短暂休眠避免CPU占用过高
+				time.Sleep(time.Millisecond * 10)
+			}
 		}
 	}
 }
@@ -272,34 +289,55 @@ func (n *Node) becomeCandidate() {
 
 	// 增加任期
 	newTerm := n.getCurrentTerm() + 1
+	n.logger.Printf("准备设置新任期: %d", newTerm)
 	if err := n.setCurrentTerm(newTerm); err != nil {
 		n.logger.Printf("设置任期失败: %v", err)
 		return
 	}
+	n.logger.Printf("成功设置新任期: %d", newTerm)
 
 	// 投票给自己
+	n.logger.Printf("准备投票给自己: %s", n.id)
 	if err := n.setVotedFor(n.id); err != nil {
 		n.logger.Printf("投票给自己失败: %v", err)
 		return
 	}
+	n.logger.Printf("成功投票给自己: %s", n.id)
 
 	n.resetElectionTimer()
 
 	n.logger.Printf("转换为候选人，任期: %d", newTerm)
 
+	n.logger.Printf("DEBUG: 准备触发状态变更事件")
 	// 触发状态变更事件
 	n.notifyStateChange(oldState, n.state, newTerm)
 
-	n.updateMetrics()
+	n.logger.Printf("DEBUG: 准备更新指标")
+	// 手动更新指标，避免死锁
+	metrics := &Metrics{
+		CurrentTerm:  n.getCurrentTerm(),
+		State:        n.state,
+		Leader:       n.leader,
+		LastLogIndex: n.storage.GetLastLogIndex(),
+		CommitIndex:  n.commitIndex,
+		LastApplied:  n.lastApplied,
+	}
+	n.metrics.Store(metrics)
 
+	n.logger.Printf("DEBUG: 准备开始选举，启动 startElection goroutine")
 	// 开始选举
-	go n.startElection()
+	go func() {
+		n.logger.Printf("DEBUG: startElection goroutine 已启动")
+		n.startElection()
+		n.logger.Printf("DEBUG: startElection goroutine 已完成")
+	}()
+
+	n.logger.Printf("DEBUG: becomeCandidate 函数即将结束")
 }
 
 // becomeLeader 转换为领导者
 func (n *Node) becomeLeader() {
 	n.mu.Lock()
-	defer n.mu.Unlock()
 
 	oldState := n.state
 	oldLeader := n.leader
@@ -323,15 +361,26 @@ func (n *Node) becomeLeader() {
 	// 启动心跳定时器
 	n.heartbeatTicker = time.NewTicker(n.config.HeartbeatInterval)
 
-	n.logger.Printf("成为领导者，任期: %d", n.getCurrentTerm())
+	currentTerm := n.getCurrentTerm()
+	n.logger.Printf("成为领导者，任期: %d", currentTerm)
 
-	// 触发状态变更事件
-	n.notifyStateChange(oldState, n.state, n.getCurrentTerm())
+	// 手动更新指标，避免在锁内调用可能阻塞的方法
+	metrics := &Metrics{
+		CurrentTerm:  currentTerm,
+		State:        n.state,
+		Leader:       n.leader,
+		LastLogIndex: lastLogIndex,
+		CommitIndex:  n.commitIndex,
+		LastApplied:  n.lastApplied,
+	}
+	n.metrics.Store(metrics)
 
-	// 触发领导者变更事件
-	n.notifyLeaderChange(oldLeader, n.leader, n.getCurrentTerm())
+	// 释放锁
+	n.mu.Unlock()
 
-	n.updateMetrics()
+	// 在锁外触发事件和发送心跳
+	n.notifyStateChange(oldState, Leader, currentTerm)
+	n.notifyLeaderChange(oldLeader, n.id, currentTerm)
 
 	// 立即发送心跳
 	go n.sendHeartbeats()

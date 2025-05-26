@@ -15,7 +15,15 @@ func (n *Node) startElection() {
 	servers := n.config.Servers
 	n.mu.RUnlock()
 
-	n.logger.Printf("开始选举，任期: %d", currentTerm)
+	n.logger.Printf("=== 开始选举调试信息 ===")
+	n.logger.Printf("当前任期: %d", currentTerm)
+	n.logger.Printf("服务器列表长度: %d", len(servers))
+	for i, server := range servers {
+		n.logger.Printf("服务器[%d]: ID=%s, Address=%s", i, server.ID, server.Address)
+	}
+	n.logger.Printf("=== 选举调试信息结束 ===")
+
+	n.logger.Printf("开始选举，任期: %d，服务器列表: %+v", currentTerm, servers)
 
 	// 创建投票请求
 	req := &VoteRequest{
@@ -28,6 +36,15 @@ func (n *Node) startElection() {
 	// 投票计数
 	voteCount := 1 // 自己投票给自己
 	majority := len(servers)/2 + 1
+
+	n.logger.Printf("开始选举投票，集群大小: %d，需要票数: %d", len(servers), majority)
+
+	// 检查是否为单节点集群
+	if len(servers) == 1 {
+		n.logger.Printf("单节点集群，直接成为领导者")
+		n.becomeLeader()
+		return
+	}
 
 	// 并发发送投票请求
 	var wg sync.WaitGroup
