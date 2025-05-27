@@ -298,9 +298,18 @@ func (n *Node) applyCommittedLogs() {
 			break
 		}
 
-		if err := n.stateMachine.Apply(entry); err != nil {
-			n.logger.Printf("应用日志条目 %d 到状态机失败: %v", index, err)
-			break
+		// 如果是配置变更条目，特殊处理
+		if entry.Type == EntryConfiguration {
+			if err := n.applyConfigurationChange(entry); err != nil {
+				n.logger.Printf("应用配置变更 %d 失败: %v", index, err)
+				break
+			}
+		} else {
+			// 普通日志条目应用到状态机
+			if err := n.stateMachine.Apply(entry); err != nil {
+				n.logger.Printf("应用日志条目 %d 到状态机失败: %v", index, err)
+				break
+			}
 		}
 
 		n.mu.Lock()

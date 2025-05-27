@@ -202,6 +202,11 @@ func (s *Server) startAPIServer() error {
 	mux.HandleFunc("/api/metrics", s.handleMetrics)
 	mux.HandleFunc("/api/logs", s.handleLogs)
 
+	// 集群管理API
+	mux.HandleFunc("/api/cluster/add", s.handleAddServer)
+	mux.HandleFunc("/api/cluster/remove", s.handleRemoveServer)
+	mux.HandleFunc("/api/cluster/config", s.handleGetConfiguration)
+
 	s.apiServer = &http.Server{
 		Addr:    s.config.APIAddr,
 		Handler: mux,
@@ -461,4 +466,127 @@ func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(logs))
+}
+
+// handleAddServer 处理添加服务器请求
+func (s *Server) handleAddServer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "只支持POST方法", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID      string `json:"id"`
+		Address string `json:"address"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "解析请求失败", http.StatusBadRequest)
+		return
+	}
+
+	if req.ID == "" || req.Address == "" {
+		http.Error(w, "id和address不能为空", http.StatusBadRequest)
+		return
+	}
+
+	server := raft.Server{
+		ID:      raft.NodeID(req.ID),
+		Address: req.Address,
+	}
+
+	if err := s.raftNode.AddServer(server); err != nil {
+		if err == raft.ErrNotLeader {
+			leader := s.raftNode.GetLeader()
+			response := map[string]interface{}{
+				"success": false,
+				"error":   "不是领导者",
+				"leader":  leader,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("服务器 %s 添加成功", req.ID),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleRemoveServer 处理移除服务器请求
+func (s *Server) handleRemoveServer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "只支持POST方法", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "解析请求失败", http.StatusBadRequest)
+		return
+	}
+
+	if req.ID == "" {
+		http.Error(w, "id不能为空", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.raftNode.RemoveServer(raft.NodeID(req.ID)); err != nil {
+		if err == raft.ErrNotLeader {
+			leader := s.raftNode.GetLeader()
+			response := map[string]interface{}{
+				"success": false,
+				"error":   "不是领导者",
+				"leader":  leader,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("服务器 %s 移除成功", req.ID),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleGetConfiguration 处理获取集群配置请求
+func (s *Server) handleGetConfiguration(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "只支持GET方法", http.StatusMethodNotAllowed)
+		return
+	}
+
+	config := s.raftNode.GetConfiguration()
+
+	response := map[string]interface{}{
+		"configuration": config,
+		"changing":      s.raftNode.IsConfigurationChanging(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetRaftNode 获取Raft节点（用于测试）
+func (s *Server) GetRaftNode() *raft.Node {
+	return s.raftNode
 }
