@@ -1,0 +1,71 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99 -g -O2 -pthread
+INCLUDES = -I../../kvserver
+LIBS = -lpthread
+
+# 源文件
+KVSERVER_DIR = ../../kvserver
+ENHANCED_SOURCES = $(KVSERVER_DIR)/kv_persist_enhanced.c $(KVSERVER_DIR)/kv_snapshot_enhanced.c
+TEST_SOURCES = enhanced_persistence_test.c
+
+# 目标文件
+ENHANCED_OBJECTS = $(ENHANCED_SOURCES:.c=.o)
+TEST_OBJECTS = $(TEST_SOURCES:.c=.o)
+
+# 可执行文件
+TEST_EXECUTABLE = enhanced_persistence_test
+
+.PHONY: all clean test
+
+all: $(TEST_EXECUTABLE)
+
+$(TEST_EXECUTABLE): $(ENHANCED_OBJECTS) $(TEST_OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+test: $(TEST_EXECUTABLE)
+	@echo "运行增强持久化功能测试..."
+	@./$(TEST_EXECUTABLE)
+
+clean:
+	rm -f $(ENHANCED_OBJECTS) $(TEST_OBJECTS) $(TEST_EXECUTABLE)
+	rm -rf /tmp/test_*
+
+# 编译单独的组件
+enhanced_persist: $(KVSERVER_DIR)/kv_persist_enhanced.o
+	@echo "编译增强持久化模块完成"
+
+enhanced_snapshot: $(KVSERVER_DIR)/kv_snapshot_enhanced.o
+	@echo "编译增强快照模块完成"
+
+# 调试版本
+debug: CFLAGS += -DDEBUG -g3
+debug: $(TEST_EXECUTABLE)
+
+# 性能优化版本
+release: CFLAGS += -O3 -DNDEBUG
+release: $(TEST_EXECUTABLE)
+
+# 内存检查
+valgrind: $(TEST_EXECUTABLE)
+	valgrind --leak-check=full --show-leak-kinds=all ./$(TEST_EXECUTABLE)
+
+# 代码覆盖率
+coverage: CFLAGS += --coverage
+coverage: LIBS += --coverage
+coverage: $(TEST_EXECUTABLE)
+	./$(TEST_EXECUTABLE)
+	gcov $(ENHANCED_SOURCES) $(TEST_SOURCES)
+
+help:
+	@echo "可用的目标:"
+	@echo "  all          - 编译所有文件"
+	@echo "  test         - 运行测试"
+	@echo "  clean        - 清理编译文件"
+	@echo "  debug        - 编译调试版本"
+	@echo "  release      - 编译优化版本"
+	@echo "  valgrind     - 使用valgrind检查内存"
+	@echo "  coverage     - 生成代码覆盖率报告"
+	@echo "  help         - 显示此帮助信息" 
