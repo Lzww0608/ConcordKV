@@ -27,7 +27,7 @@
 
 1. 编译存储引擎：
 ```bash
-cd /path/to/ConcordKV/kvserver
+cd ConcordKV/kvserver
 make clean && make
 ```
 
@@ -48,9 +48,45 @@ sudo apt-get install linux-tools-common linux-tools-generic
 sudo apt-get install stress-ng
 ```
 
-## 2. 单元测试
+## 2. 测试套件概览
 
-### 2.1 测试范围
+ConcordKV提供了完整的测试套件，按功能分类组织：
+
+```
+tests/
+├── enhanced_persistence/          # 增强持久化功能测试
+├── unit_tests/                    # 单元测试
+├── performance_tests/             # 性能基准测试
+├── integration_tests/             # 集成测试
+└── run_all_tests.sh              # 主测试脚本
+```
+
+### 2.1 快速运行所有测试
+
+```bash
+cd ConcordKV/tests
+./run_all_tests.sh
+```
+
+### 2.2 运行特定类型的测试
+
+```bash
+# 只运行单元测试
+./run_all_tests.sh --unit-only
+
+# 只运行增强持久化功能测试
+./run_all_tests.sh --enhanced-only
+
+# 只运行性能测试
+./run_all_tests.sh --perf-only
+
+# 运行所有测试包含内存检查
+./run_all_tests.sh --with-valgrind
+```
+
+## 3. 单元测试
+
+### 3.1 测试范围
 
 单元测试覆盖存储引擎的基本组件功能，包括：
 
@@ -61,18 +97,14 @@ sudo apt-get install stress-ng
 - 并发控制
 - 错误处理
 
-### 2.2 运行单元测试
+### 3.2 运行单元测试
 
 ```bash
-# 编译并运行所有单元测试
-cd /path/to/ConcordKV/kvserver
-make test
-
-# 运行特定测试用例（例如仅测试红黑树实现）
-./testcase --module=rbtree
+cd ConcordKV/tests/unit_tests
+make clean && make test
 ```
 
-### 2.3 测试用例设计
+### 3.3 测试用例设计
 
 每个模块的测试用例应包括：
 
@@ -80,449 +112,256 @@ make test
 - **边界场景**：测试极限值和边界条件
 - **错误场景**：验证对错误输入的处理
 
-### 2.4 内存泄漏检测
+### 3.4 内存泄漏检测
 
 使用Valgrind检测内存泄漏：
 
 ```bash
-valgrind --leak-check=full --show-leak-kinds=all ./testcase
+cd ConcordKV/tests/unit_tests
+valgrind --leak-check=full --show-leak-kinds=all ./simple_test
 ```
 
-## 3. 功能测试
+## 4. 增强持久化功能测试
 
-### 3.1 持久化测试
+### 4.1 测试内容
 
-测试WAL日志和快照机制的正确性：
+增强持久化功能测试包括：
 
-1. **日志恢复测试**：
-```bash
-# 运行持久化测试
-./testcase --module=persist --test=wal_recovery
+- WAL日志压缩测试
+- 增量持久化测试
+- 日志轮转测试
+- 增量快照测试
+- 并发操作测试
+- 性能测试
 
-# 模拟崩溃后恢复测试
-./crash_recovery_test --wal-dir=/tmp/concordkv-test/logs
-```
-
-2. **快照创建与加载测试**：
-```bash
-./testcase --module=persist --test=snapshot
-```
-
-### 3.2 事务测试
-
-验证事务的ACID特性：
-
-1. **原子性测试**：
-```bash
-./testcase --module=transaction --test=atomicity
-```
-
-2. **一致性测试**：
-```bash
-./testcase --module=transaction --test=consistency
-```
-
-3. **隔离性测试**：
-```bash
-./testcase --module=transaction --test=isolation --level=repeatable_read
-```
-
-4. **持久性测试**：
-```bash
-./testcase --module=transaction --test=durability
-```
-
-### 3.3 并发控制测试
-
-测试并发访问下的数据一致性：
-
-1. **读写锁测试**：
-```bash
-./testcase --module=concurrency --test=rwlock --threads=8
-```
-
-2. **分段锁测试**：
-```bash
-./testcase --module=concurrency --test=segment_lock --segments=16 --threads=16
-```
-
-3. **死锁检测测试**：
-```bash
-./testcase --module=concurrency --test=deadlock_detection
-```
-
-### 3.4 错误处理测试
-
-验证系统对各种错误的处理能力：
+### 4.2 运行测试
 
 ```bash
-# 测试内存分配失败
-./testcase --module=error --test=memory_allocation_failure
-
-# 测试文件操作错误
-./testcase --module=error --test=file_operation_failure
-
-# 测试网络错误
-./testcase --module=error --test=network_failure
+cd ConcordKV/tests/enhanced_persistence
+./run_enhanced_tests.sh
 ```
 
-## 4. 性能测试
+### 4.3 详细测试项目
 
-### 4.1 基准测试
+1. **日志压缩测试**：
+   - 验证日志压缩功能正确性
+   - 测试压缩后的空间节省效果
+   - 验证压缩后数据的完整性
 
-基准测试用于评估存储引擎的基本性能指标：
+2. **增量持久化测试**：
+   - 测试批量同步功能
+   - 验证定时同步机制
+   - 测试崩溃恢复能力
 
-```bash
-# 运行基准测试工具
-cd /path/to/ConcordKV/tests
-./benchmark --operations=1000000 --value-size=1024 --threads=1
-```
+3. **日志轮转测试**：
+   - 验证文件大小限制
+   - 测试多文件管理
+   - 验证旧文件清理
 
-关键性能指标包括：
+4. **增量快照测试**：
+   - 测试增量快照创建
+   - 验证增量快照恢复
+   - 测试快照文件管理
+
+## 5. 性能基准测试
+
+### 5.1 基准测试内容
+
+性能基准测试评估以下指标：
 
 - **吞吐量**：每秒操作数（ops/sec）
 - **延迟**：操作的平均、最大和P99延迟
 - **CPU使用率**：系统和用户CPU时间
 - **内存占用**：峰值和平均内存使用
 
-### 4.2 扩展性测试
+### 5.2 运行基准测试
+
+```bash
+cd ConcordKV/tests/performance_tests
+make clean && make benchmark
+```
+
+### 5.3 扩展性测试
 
 测试系统在不同负载下的性能扩展性：
 
 1. **数据量扩展性**：
 ```bash
-./benchmark --key-count=1000000 --value-size=4096
+# 测试大数据量下的性能
+./persistence_benchmark --operations=1000000
 ```
 
 2. **并发扩展性**：
 ```bash
-for threads in 1 2 4 8 16 32 64; do
-    ./benchmark --operations=1000000 --threads=$threads --duration=60
-done
+# 测试多线程并发性能
+./persistence_benchmark --threads=8
 ```
 
-3. **读写比例测试**：
+### 5.4 性能优化建议
+
+基于测试结果的性能优化建议：
+
+- **异步写入**: 在高吞吐量场景下使用异步写入
+- **批量操作**: 使用批量操作减少系统调用开销
+- **内存预分配**: 预分配内存减少动态分配
+- **压缩配置**: 根据存储空间需求调整压缩参数
+
+## 6. 集成测试
+
+### 6.1 测试范围
+
+集成测试验证多个组件之间的协作：
+
+- 存储引擎与Raft服务器的集成
+- 客户端与服务器的通信
+- 集群节点间的数据同步
+- 故障恢复和容错能力
+
+### 6.2 集群测试
+
+1. **多节点集群测试**：
 ```bash
-for write_ratio in 0.0 0.2 0.5 0.8 1.0; do
-    ./benchmark --write-ratio=$write_ratio --duration=60
-done
+# 启动3节点集群进行测试
+cd ConcordKV/raftserver
+./test_cluster.sh
 ```
 
-### 4.3 持久化性能测试
-
-评估持久化对性能的影响：
-
+2. **故障恢复测试**：
 ```bash
-# 无持久化基准
-./benchmark --persist=none --duration=60
-
-# 同步写入WAL
-./benchmark --persist=sync --duration=60
-
-# 异步写入WAL
-./benchmark --persist=async --duration=60
-
-# 定期快照
-./benchmark --persist=snapshot --snapshot-interval=60 --duration=300
+# 模拟节点故障和恢复
+./test_failover.sh
 ```
 
-### 4.4 资源消耗测试
-
-监控系统在不同工作负载下的资源消耗：
+### 6.3 客户端集成测试
 
 ```bash
-# 使用perf工具监控CPU使用情况
-perf stat -d ./benchmark --duration=60
+cd ConcordKV/client/go
+go test -v ./...
+```
 
-# 使用perf记录详细性能数据
-perf record -g ./benchmark --duration=60
+## 7. 压力测试
+
+### 7.1 长时间运行测试
+
+验证系统在长时间运行下的稳定性：
+
+```bash
+# 运行24小时压力测试
+./stress_test.sh --duration=24h --operations=continuous
+```
+
+### 7.2 高并发测试
+
+测试系统在高并发访问下的表现：
+
+```bash
+# 高并发读写测试
+./concurrent_test.sh --clients=100 --duration=1h
+```
+
+### 7.3 资源限制测试
+
+在资源受限环境下测试系统行为：
+
+```bash
+# 限制内存测试
+systemd-run --scope -p MemoryLimit=1G ./memory_limit_test.sh
+
+# 限制CPU测试
+systemd-run --scope -p CPUQuota=50% ./cpu_limit_test.sh
+```
+
+## 8. 故障注入测试
+
+### 8.1 网络故障模拟
+
+```bash
+# 模拟网络延迟
+tc qdisc add dev eth0 root netem delay 100ms
+
+# 模拟网络丢包
+tc qdisc add dev eth0 root netem loss 1%
+```
+
+### 8.2 磁盘故障模拟
+
+```bash
+# 模拟磁盘满
+dd if=/dev/zero of=/tmp/fill_disk bs=1M count=1000
+
+# 模拟磁盘I/O错误
+echo 1 > /sys/block/sda/queue/iostats
+```
+
+### 8.3 内存压力测试
+
+```bash
+# 使用stress-ng进行内存压力测试
+stress-ng --vm 4 --vm-bytes 1G --timeout 60s
+```
+
+## 9. 测试报告和分析
+
+### 9.1 自动化测试报告
+
+测试脚本会自动生成详细的测试报告：
+
+```bash
+# 查看最新的测试报告
+cat ConcordKV/tests/test_summary_report.md
+```
+
+### 9.2 性能分析
+
+使用perf工具进行性能分析：
+
+```bash
+# 性能分析
+perf record -g ./persistence_benchmark
 perf report
-
-# 分析磁盘I/O
-iostat -xm 5 | tee disk_io.log
 ```
 
-## 5. 压力测试
+### 9.3 内存分析
 
-### 5.1 长时间稳定性测试
-
-验证系统在长期运行下的稳定性：
+使用Valgrind进行内存分析：
 
 ```bash
-# 运行24小时持续测试
-./stress-test --duration=24h --threads=8
+# 内存使用分析
+valgrind --tool=massif ./simple_test
+ms_print massif.out.*
 ```
 
-### 5.2 极限负载测试
+## 10. 持续集成
 
-测试系统在极端条件下的行为：
+### 10.1 自动化测试流程
 
-```bash
-# 高并发测试
-./stress-test --threads=100 --duration=1h
+建议的CI/CD流程：
 
-# 大键值测试
-./stress-test --value-size=10m --key-count=1000 --duration=1h
+1. **代码提交触发**: 每次代码提交自动运行单元测试
+2. **夜间构建**: 运行完整的测试套件包括性能测试
+3. **发布前验证**: 运行所有测试确保质量
 
-# 高频写入测试
-./stress-test --write-ratio=1.0 --operations-per-second=10000 --duration=1h
-```
+### 10.2 测试环境管理
 
-### 5.3 故障恢复测试
+- **隔离环境**: 每个测试运行在独立的环境中
+- **数据清理**: 测试后自动清理临时数据
+- **资源监控**: 监控测试过程中的资源使用
 
-验证系统在各种故障情况下的恢复能力：
+## 11. 故障排除
 
-```bash
-# 随机崩溃测试
-./crash-test --crash-probability=0.01 --duration=3h
+### 11.1 常见问题
 
-# 磁盘空间耗尽测试
-./disk-stress-test --fill-disk --duration=1h
+1. **编译错误**: 检查依赖项和编译器版本
+2. **测试超时**: 调整超时参数或检查系统负载
+3. **内存泄漏**: 使用Valgrind定位内存泄漏位置
+4. **性能下降**: 检查系统资源和配置参数
 
-# 网络分区测试
-./network-partition-test --partition-interval=300 --duration=3h
-```
+### 11.2 调试技巧
 
-### 5.4 资源限制测试
+- 使用GDB进行调试：`gdb ./simple_test`
+- 启用详细日志：设置环境变量`DEBUG=1`
+- 使用strace跟踪系统调用：`strace -o trace.log ./simple_test`
 
-在资源受限的环境中测试系统性能：
+---
 
-```bash
-# 限制CPU
-taskset -c 0 ./benchmark --duration=10m
-
-# 限制内存
-cgroup-tools需要预先配置
-cgexec -g memory:limited_mem ./benchmark --duration=10m
-```
-
-## 6. 集群测试
-
-### 6.1 节点操作测试
-
-测试集群节点的增加、删除和恢复：
-
-```bash
-# 启动3节点集群
-./cluster-test --nodes=3 --start
-
-# 添加节点测试
-./cluster-test --add-node --host=192.168.1.4 --port=5000
-
-# 删除节点测试
-./cluster-test --remove-node --node-id=node-2
-
-# 节点故障与恢复测试
-./cluster-test --fail-node --node-id=node-3 --recover-after=60
-```
-
-### 6.2 领导者选举测试
-
-验证Raft协议中的领导者选举功能：
-
-```bash
-# 领导者选举测试
-./raft-test --test=leader_election --nodes=5
-
-# 强制重选举测试
-./raft-test --test=force_reelection --nodes=5
-```
-
-### 6.3 数据分片测试
-
-测试数据分片和路由功能：
-
-```bash
-# 分片均衡测试
-./shard-test --shards=64 --nodes=5 --test=balance
-
-# 分片迁移测试
-./shard-test --test=migration --source=node-1 --target=node-2
-
-# 热点检测和处理测试
-./shard-test --test=hotspot --duration=30m
-```
-
-### 6.4 一致性测试
-
-验证分布式环境下的数据一致性：
-
-```bash
-# 线性一致性检查
-./consistency-test --test=linearizability --operations=10000
-
-# 部分分区下的一致性测试
-./consistency-test --test=network_partition --duration=10m
-```
-
-## 7. 集成测试
-
-### 7.1 与Raft服务器集成测试
-
-测试存储引擎与Raft服务器的协同工作：
-
-```bash
-# 启动集成测试环境
-cd /path/to/ConcordKV
-./integration-test --components=kvserver,raftserver --nodes=3
-```
-
-### 7.2 与客户端库集成测试
-
-验证存储引擎与客户端库的兼容性：
-
-```bash
-# Go客户端测试
-cd /path/to/ConcordKV/tests
-go test -v ./client_test.go
-
-# C/C++客户端测试
-make client_test
-./client_test
-```
-
-### 7.3 端到端测试
-
-执行完整的端到端测试场景：
-
-```bash
-# 端到端功能测试
-./e2e-test --test=functionality
-
-# 端到端性能测试
-./e2e-test --test=performance
-
-# 端到端可靠性测试
-./e2e-test --test=reliability --duration=12h
-```
-
-## 8. 测试报告生成
-
-### 8.1 测试结果收集
-
-收集并整理测试结果：
-
-```bash
-# 收集单元测试结果
-./collect_results.sh --type=unit
-
-# 收集性能测试结果
-./collect_results.sh --type=performance
-
-# 收集压力测试结果
-./collect_results.sh --type=stress
-```
-
-### 8.2 测试报告生成
-
-根据测试结果生成报告：
-
-```bash
-# 生成综合测试报告
-./generate_report.sh --output=test_report.html
-
-# 生成性能对比报告
-./generate_report.sh --type=performance_comparison --baseline=v1.0 --current=v1.1
-```
-
-### 8.3 测试覆盖率分析
-
-分析代码覆盖率：
-
-```bash
-# 编译支持覆盖率分析的版本
-make coverage
-
-# 运行测试
-./testcase_coverage
-
-# 生成覆盖率报告
-gcov *.c
-lcov --capture --directory . --output-file coverage.info
-genhtml coverage.info --output-directory coverage_report
-```
-
-## 9. 持续集成
-
-### 9.1 CI配置
-
-设置持续集成环境，在代码提交时自动运行测试：
-
-```yaml
-# Jenkins或GitLab CI配置示例
-pipeline:
-  stages:
-    - build
-    - unit_test
-    - functional_test
-    - performance_test
-    - stress_test
-    - integration_test
-```
-
-### 9.2 自动化测试脚本
-
-示例自动化测试脚本：
-
-```bash
-#!/bin/bash
-# 自动化测试脚本示例
-
-set -e
-
-# 编译
-cd /path/to/ConcordKV/kvserver
-make clean && make
-
-# 运行单元测试
-make test
-
-# 运行功能测试
-cd ../tests
-./functional_tests.sh
-
-# 运行简单性能测试
-./performance_tests.sh --quick
-
-# 生成报告
-./generate_report.sh
-```
-
-## 10. 测试最佳实践
-
-### 10.1 测试用例设计原则
-
-- 测试用例应当独立且可重复
-- 每个测试用例应专注于验证一个功能点
-- 同时覆盖正常路径和异常路径
-- 考虑边界条件和极端场景
-
-### 10.2 性能测试注意事项
-
-- 在测试前预热系统
-- 每次测试使用相同的硬件和环境
-- 多次重复测试取平均值
-- 排除干扰因素（如系统后台任务）
-
-### 10.3 测试环境维护
-
-- 定期清理测试数据和日志
-- 保持测试环境一致性
-- 记录环境变更
-- 使用容器或虚拟机隔离测试环境
-
-## 附录
-
-### A. 常见测试问题解决方案
-
-- 测试失败排查流程
-- 性能异常分析方法
-- 内存泄漏定位技巧
-
-### B. 测试命令参考
-
-完整的测试命令参数说明和示例。
-
-### C. 测试环境搭建脚本
-
-自动化测试环境配置脚本和说明。 
+本测试指南提供了ConcordKV存储引擎的全面测试方法。通过系统性的测试，可以确保系统的正确性、性能和可靠性。建议在开发过程中定期运行测试，并在发布前进行完整的测试验证。 
