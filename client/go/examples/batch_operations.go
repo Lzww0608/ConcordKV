@@ -1,3 +1,11 @@
+/*
+* @Author: Lzww0608
+* @Date: 2025-5-30 09:56:35
+* @LastEditors: Lzww0608
+* @LastEditTime: 2025-5-30 09:56:35
+* @Description: ConcordKV Go client batch operations example
+ */
+
 package main
 
 import (

@@ -1,3 +1,10 @@
+/*
+* @Author: Lzww0608
+* @Date: 2025-5-30 09:56:35
+* @LastEditors: Lzww0608
+* @LastEditTime: 2025-5-30 09:56:35
+* @Description: ConcordKV utility functions - log.c
+ */
 #define _GNU_SOURCE
 #include "log.h"
 #include "util.h"

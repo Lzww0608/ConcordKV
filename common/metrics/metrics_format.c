@@ -1,3 +1,10 @@
+/*
+* @Author: Lzww0608
+* @Date: 2025-5-30 09:56:35
+* @LastEditors: Lzww0608
+* @LastEditTime: 2025-5-30 09:56:35
+* @Description: ConcordKV metrics system - metrics_format.c
+ */
 /**
  * @file metrics_format.c
  * @brief 指标格式化输出和HTTP服务器实现

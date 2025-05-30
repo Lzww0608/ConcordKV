@@ -1,3 +1,10 @@
+/*
+* @Author: Lzww0608
+* @Date: 2025-5-30 09:56:35
+* @LastEditors: Lzww0608
+* @LastEditTime: 2025-5-30 09:56:35
+* @Description: ConcordKV Raft consensus server - test_api.go
+ */
 // 注意：此程序需要在raftserver目录下运行
 // 使用方法：cd ../../raftserver && go run ../tests/raftserver/test_api.go
 package main

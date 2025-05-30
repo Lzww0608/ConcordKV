@@ -1,3 +1,10 @@
+/*
+* @Author: Lzww0608
+* @Date: 2025-5-30 09:56:35
+* @LastEditors: Lzww0608
+* @LastEditTime: 2025-5-30 09:56:35
+* @Description: ConcordKV utility functions - timer.h
+ */
 /**
  * @file timer.h
  * @brief 高精度定时器接口，使用epoll + 最小堆实现
