@@ -5,6 +5,9 @@
 * @LastEditTime: 2025-5-30 09:56:35
 * @Description: ConcordKV storage engine - kv_cluster.c
  */
+#define _GNU_SOURCE     // 启用扩展函数
+#define _POSIX_C_SOURCE 200809L  // 启用POSIX扩展
+
 #include "kv_cluster.h"
 #include "kv_store.h"
 #include <sys/socket.h>

@@ -2,9 +2,12 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-5-30 23:53:52
 * @Description: ConcordKV storage engine - kv_error.c
  */
+#define _GNU_SOURCE     // 启用扩展函数
+#define _POSIX_C_SOURCE 200809L  // 启用POSIX扩展
+
 #include "kv_error.h"
 #include <pthread.h>
 
@@ -92,10 +95,10 @@ void kv_set_error(int code, const char *file, int line, const char *func, const 
     vsnprintf(error->message, sizeof(error->message), fmt, args);
     va_end(args);
     
-    // 同时记录错误日志
-    kv_log(KV_LOG_ERROR, file, line, func, "Error %d: %s", code, error->message);
-    
     pthread_mutex_unlock(&g_error_mutex);
+    
+    // 在释放锁后记录错误日志，避免死锁
+    kv_log(KV_LOG_ERROR, file, line, func, "Error %d: %s", code, error->message);
 }
 
 // 获取最近的错误

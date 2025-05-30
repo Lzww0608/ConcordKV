@@ -5,11 +5,25 @@
 * @LastEditTime: 2025-5-30 09:56:35
 * @Description: ConcordKV storage engine - kv_persist.c
  */
+#define _GNU_SOURCE     // 启用strdup等扩展函数
+#define _POSIX_C_SOURCE 200809L  // 启用POSIX扩展
+
 #include "kv_persist.h"
 #include "kv_store.h"
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
+
+// 确保PATH_MAX定义
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 // 创建目录（如果不存在）
 static int ensure_directory(const char *dir) {

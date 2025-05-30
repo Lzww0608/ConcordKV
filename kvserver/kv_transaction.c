@@ -5,6 +5,9 @@
 * @LastEditTime: 2025-5-30 09:56:35
 * @Description: ConcordKV storage engine - kv_transaction.c
  */
+#define _GNU_SOURCE     // 启用strdup等扩展函数
+#define _POSIX_C_SOURCE 200809L  // 启用POSIX扩展
+
 #include "kv_transaction.h"
 #include "kv_store.h"
 #include <string.h>

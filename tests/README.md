@@ -1,180 +1,278 @@
-# ConcordKV 测试套件
+# ConcordKV 测试系统
 
-本目录包含 ConcordKV 项目的所有测试文件，按功能和类型进行分类组织。
+## 概述
 
-## 📁 目录结构
+ConcordKV 测试系统提供了全面的存储引擎接口测试，包含超时机制防止死锁，确保测试的可靠性和效率。
+
+## 目录结构
 
 ```
 tests/
-├── enhanced_persistence/          # 增强持久化功能测试
-│   ├── enhanced_persistence_test.c    # 完整功能测试
-│   ├── Makefile.enhanced              # 构建配置
-│   ├── run_enhanced_tests.sh          # 自动化测试脚本
-│   └── README_ENHANCED.md             # 详细文档
-├── distributed_transaction_tests/ # 分布式事务测试 🆕
-│   ├── test_distributed_transaction.c # 分布式事务核心测试
-│   ├── test_priority_queue.c          # 优先级队列测试
-│   ├── test_2pc_protocol.c            # 2PC协议测试
-│   ├── test_timeout_handling.c        # 超时处理测试
-│   ├── Makefile                       # 构建系统
-│   ├── run_tests.sh                   # 自动化测试脚本
-│   └── distributed_transaction_test_report.md # 测试报告
-├── unit_tests/                    # 单元测试
-│   └── simple_test                    # 基本功能单元测试
-├── integration_tests/             # 集成测试
-│   ├── kvserver_tests/               # KV服务器集成测试
-│   ├── raftserver/                   # Raft服务器集成测试
-│   └── client/                       # 客户端集成测试
-├── performance_tests/             # 性能测试
-│   └── persistence_benchmark.c       # 持久化性能基准测试
-└── README.md                      # 本文件
+├── Makefile                     # 测试系统构建文件
+├── README.md                    # 本说明文档
+└── engine_tests/
+    ├── kv_engine_test_enhanced.c    # 增强版测试（包含超时机制）
+    └── kv_engine_test_original.c    # 原版测试（编译时自动复制）
 ```
 
-## 🧪 测试分类说明
+## 功能特性
 
-### 1. 增强持久化功能测试 (`enhanced_persistence/`)
-- **目的**: 测试新增的日志压缩、增量持久化等高级功能
-- **特点**: 全面的功能测试，包含并发、性能、错误处理等场景
-- **运行方式**: `cd enhanced_persistence && ./run_enhanced_tests.sh`
+### 🔒 超时机制
+- **普通测试超时**: 30秒
+- **压力测试超时**: 60秒
+- **信号处理**: 使用 SIGALRM 和 setjmp/longjmp 实现
+- **死锁预防**: 自动终止超时的测试用例
 
-### 2. 分布式事务测试 (`distributed_transaction_tests/`) 🆕
-- **目的**: 测试分布式事务系统的完整功能
-- **特点**: 
-  - **2PC协议**: 两阶段提交协议的完整测试
-  - **优先级调度**: 事务优先级调度系统测试
-  - **超时处理**: 多层次超时检测和处理测试
-  - **并发控制**: 高并发场景下的事务管理测试
-  - **故障恢复**: 网络分区和节点故障恢复测试
-- **测试覆盖**: 212个测试用例，96.7%成功率
-- **运行方式**: `cd distributed_transaction_tests && ./run_tests.sh --mode all`
+### 🧪 测试覆盖
 
-### 3. 单元测试 (`unit_tests/`)
-- **目的**: 测试单个模块或函数的基本功能
-- **特点**: 快速、独立、专注于特定功能点
-- **运行方式**: 直接执行各个测试程序
+#### 基础功能测试
+- ✅ 工厂函数测试（创建/销毁引擎）
+- ✅ CRUD操作测试（Set/Get/Delete/Update）
+- ✅ 参数验证测试
+- ✅ 统计信息测试
 
-### 4. 集成测试 (`integration_tests/`)
-- **目的**: 测试多个组件之间的协作
-- **特点**: 模拟真实使用场景，测试组件间接口
-- **运行方式**: 按子目录分别运行
+#### 已实现引擎测试
+- ✅ Array 存储引擎
+- ✅ RBTree 存储引擎  
+- ✅ Hash 存储引擎
+- ⏳ BTree 存储引擎（待实现）
+- ⏳ LSM 存储引擎（待实现）
 
-### 5. 性能测试 (`performance_tests/`)
-- **目的**: 评估系统性能指标
-- **特点**: 大量数据、长时间运行、详细的性能统计
-- **运行方式**: 需要较长时间，建议在性能测试环境运行
+#### 高级测试
+- 🔄 **并发安全测试**: 8线程并发读写，每线程100操作
+- 💾 **内存泄漏测试**: 1000次创建/销毁循环
+- ⚡ **压力测试**: 10,000个键值对的大数据量测试
+- 📊 **性能测试**: 吞吐量和延迟统计
 
-## 🚀 快速开始
+### 📊 测试报告
 
-### 运行所有测试
+测试系统提供详细的统计报告：
+- 总测试数量
+- 通过/失败/超时测试数量
+- 执行时间统计
+- 成功率计算
+- 性能指标（ops/sec）
+
+## 使用方法
+
+### 基础编译和测试
+
 ```bash
-# 运行增强持久化功能测试
-cd enhanced_persistence
-./run_enhanced_tests.sh
+# 编译所有测试程序
+make all
 
-# 运行单元测试
-cd ../unit_tests
-./simple_test
+# 运行增强版测试（推荐）
+make test
 
-# 运行性能基准测试
-cd ../performance_tests
-gcc -Wall -Wextra -std=c99 -g -O2 -pthread -I../../kvserver \
-    -o persistence_benchmark \
-    persistence_benchmark.c \
-    ../../kvserver/kv_persist_enhanced.c \
-    ../../kvserver/kv_snapshot_enhanced.c \
-    -lpthread
-./persistence_benchmark
+# 运行原版测试
+make test_original
+
+# 运行所有测试
+make test_all
 ```
 
-### 运行特定类型的测试
+### 高级测试
+
 ```bash
-# 只运行功能测试（快速）
-cd enhanced_persistence
-./run_enhanced_tests.sh
+# 内存泄漏检查（需要安装valgrind）
+make memcheck
 
-# 运行性能基准测试
-cd enhanced_persistence
-./run_enhanced_tests.sh --benchmark
+# 性能基准测试
+make benchmark
 
-# 运行内存检查
-cd enhanced_persistence
-./run_enhanced_tests.sh --valgrind
+# 并发压力测试
+make stress
 ```
 
-## 📊 测试覆盖范围
+### 维护操作
 
-### 功能覆盖
-- ✅ WAL基本操作（写入、恢复）
-- ✅ 日志轮转和文件管理
-- ✅ 日志压缩和空间优化
-- ✅ 增量持久化和同步
-- ✅ 快照创建和恢复
-- ✅ 增量快照功能
-- ✅ 并发操作安全性
-- ✅ 错误处理和边界条件
+```bash
+# 查看帮助信息
+make help
 
-### 性能覆盖
-- ✅ 写入吞吐量测试
-- ✅ 延迟分析（平均值和P99）
-- ✅ 多线程并发性能
-- ✅ 内存使用监控
-- ✅ 同步vs异步性能对比
+# 查看系统信息
+make info
 
-### 质量保证
-- ✅ 内存泄漏检查（valgrind）
-- ✅ 线程安全性验证
-- ✅ 长时间运行稳定性
-- ✅ 异常情况处理
+# 清理编译产物
+make clean
 
-## 🔧 开发指南
+# 深度清理
+make clean_all
+```
+
+## 超时机制详解
+
+### 实现原理
+
+1. **信号机制**: 使用 `alarm()` 设置定时器，`SIGALRM` 信号触发超时
+2. **非局部跳转**: 使用 `setjmp()/longjmp()` 实现从信号处理器跳出
+3. **状态管理**: 维护测试状态，区分正常结束、失败和超时
+
+### 关键代码
+
+```c
+// 设置超时
+static void set_test_timeout(int seconds) {
+    test_timed_out = 0;
+    signal(SIGALRM, timeout_handler);
+    alarm(seconds);
+}
+
+// 超时处理器
+static void timeout_handler(int sig) {
+    test_timed_out = 1;
+    longjmp(timeout_jmp, 1);
+}
+
+// 测试执行
+if (setjmp(timeout_jmp) == 0) {
+    set_test_timeout(timeout_sec);
+    result = test_func();
+    clear_test_timeout();
+} else {
+    // 处理超时
+    g_test_stats.timeout_tests++;
+}
+```
+
+### 超时配置
+
+- `TEST_TIMEOUT_SECONDS`: 普通测试超时（30秒）
+- `STRESS_TEST_TIMEOUT_SECONDS`: 压力测试超时（60秒）
+- 可通过修改宏定义调整超时时间
+
+## 并发安全测试
+
+### 测试设计
+- **多线程**: 8个工作线程同时操作同一引擎
+- **操作分离**: 每线程使用不同的键前缀避免冲突
+- **统计同步**: 使用互斥锁保护全局统计计数器
+- **优雅退出**: 支持提前终止机制
+
+### 测试指标
+- 成功操作数量
+- 错误操作数量
+- 引擎功能完整性验证
+
+## 内存泄漏检测
+
+### 内置检测
+- 1000次引擎创建/销毁循环
+- 每次循环进行完整的CRUD操作
+- 监控内存使用模式
+
+### Valgrind集成
+```bash
+make memcheck
+```
+- 详细的内存泄漏报告
+- 源码行号定位
+- 120秒超时保护
+
+## 性能测试
+
+### 测试项目
+- **写入性能**: 批量SET操作的吞吐量
+- **读取性能**: 批量GET操作的吞吐量  
+- **数据完整性**: 验证写入数据的正确性
+
+### 性能指标
+- 操作吞吐量（ops/sec）
+- 平均延迟（ms）
+- 数据验证成功率
+
+## 故障排除
+
+### 常见问题
+
+1. **编译错误**: 确保kvserver目录已正确编译
+2. **链接错误**: 检查依赖的对象文件是否存在
+3. **测试超时**: 调整超时时间或检查死锁问题
+4. **并发失败**: 验证引擎的线程安全实现
+
+### 调试技巧
+
+```bash
+# 启用调试信息
+CFLAGS="-DDEBUG -g" make test
+
+# 单独运行特定测试
+./engine_tests/kv_engine_test_enhanced
+
+# 使用GDB调试
+gdb ./engine_tests/kv_engine_test_enhanced
+```
+
+## 开发指南
 
 ### 添加新测试
-1. 确定测试类型（单元/集成/性能）
-2. 在相应目录创建测试文件
-3. 遵循现有的命名约定
-4. 添加适当的超时机制
-5. 更新相关的README文档
 
-### 测试规范
-- 使用 `assert()` 进行断言检查
-- 设置合理的超时时间（防止测试卡死）
-- 清理测试产生的临时文件
-- 提供清晰的测试输出信息
-- 支持自动化运行
+1. 在 `kv_engine_test_enhanced.c` 中添加测试函数
+2. 使用 `TEST_ASSERT` 和 `TEST_SUCCESS` 宏
+3. 在 `main()` 函数中使用 `RUN_TEST` 调用
+4. 考虑是否需要特殊的超时设置
 
-### 性能测试注意事项
-- 在专用的性能测试环境运行
-- 关闭不必要的系统服务
-- 多次运行取平均值
-- 记录系统配置信息
+### 测试函数模板
 
-## 📈 持续集成
+```c
+int test_new_feature() {
+    // 设置测试环境
+    kv_engine_t *engine = kv_engine_create(KV_ENGINE_ARRAY, NULL);
+    TEST_ASSERT(engine != NULL, "Failed to create engine");
+    
+    // 执行测试逻辑
+    int ret = your_test_operation(engine);
+    TEST_ASSERT(ret == expected_result, "Operation failed");
+    
+    // 清理资源
+    kv_engine_destroy(engine);
+    
+    TEST_SUCCESS("New feature test passed");
+}
+```
 
-### 自动化测试流程
-1. **代码提交触发**: 每次代码提交自动运行基础测试
-2. **夜间构建**: 运行完整的测试套件包括性能测试
-3. **发布前验证**: 运行所有测试确保质量
+### 超时测试模板
 
-### 测试报告
-- 测试结果自动生成报告
-- 性能指标趋势分析
-- 代码覆盖率统计
-- 内存使用情况监控
+```c
+// 需要特殊超时的测试
+RUN_TEST_WITH_TIMEOUT(test_long_running, 120);
+```
 
-## 🤝 贡献指南
+## 与CI/CD集成
 
-### 提交测试
-1. 确保新功能包含相应测试
-2. 运行现有测试确保无回归
-3. 更新相关文档
-4. 提交Pull Request
+### GitHub Actions示例
 
-### 测试质量要求
-- 测试覆盖率 > 90%
-- 无内存泄漏
-- 支持并发场景
-- 包含错误处理测试
+```yaml
+- name: Run ConcordKV Tests
+  run: |
+    cd ConcordKV/tests
+    make test
+    make memcheck
+```
+
+### 返回值说明
+- `0`: 所有测试通过
+- `1`: 有测试失败或超时
+- `2`: 编译错误
+
+## 未来扩展
+
+### 计划中的测试
+
+- [ ] 分布式一致性测试
+- [ ] 故障恢复测试
+- [ ] 网络分区测试
+- [ ] 事务ACID测试
+- [ ] 持久化测试
+
+### 性能基准
+
+- [ ] 与其他KV存储对比
+- [ ] 不同数据大小的性能曲线
+- [ ] 内存使用优化验证
 
 ---
 
-**注意**: 运行性能测试可能需要较长时间，建议在专用的测试环境中进行。如有问题，请参考各子目录中的详细文档。 
+## 许可证
+
+本测试系统是 ConcordKV 项目的一部分，遵循项目的开源许可证。 

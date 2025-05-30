@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-5-30 23:53:42
 * @Description: ConcordKV storage engine - kvstore_rbtree.c
  */
 
@@ -47,7 +47,8 @@ typedef struct _rbtree {
 	int count;
 } rbtree;
 
-
+// 前向声明
+static void _rbtree_destroy_recursive(rbtree *tree, rbtree_node *node);
 
 rbtree_node *rbtree_mini(rbtree *T, rbtree_node *x) {
 	while (x->left != T->nil) {
@@ -405,27 +406,43 @@ void kv_store_rbtree_destroy(rbtree *tree) {
 
 	if (!tree) return ;
 
-	if (tree->nil->key) kv_store_free(tree->nil->key);
-
-	rbtree_node *node = tree->root;
-	while (node != tree->nil) {
-
-		node = rbtree_mini(tree, tree->root);
-		if (node == tree->nil) {
-			break;
-		}
-
-		node = rbtree_delete(tree, node);
-
-		if (!node) {
-			kv_store_free(node->key);
-			kv_store_free(node->value);
-			kv_store_free(node);
-		}
-		
-
+	// 释放nil节点的键
+	if (tree->nil && tree->nil->key) {
+		kv_store_free(tree->nil->key);
 	}
 
+	// 使用后序遍历安全地删除所有节点
+	_rbtree_destroy_recursive(tree, tree->root);
+	
+	// 释放nil节点
+	if (tree->nil) {
+		kv_store_free(tree->nil);
+	}
+	
+	// 重置树状态
+	tree->root = NULL;
+	tree->nil = NULL;
+	tree->count = 0;
+}
+
+// 递归销毁所有节点的辅助函数
+static void _rbtree_destroy_recursive(rbtree *tree, rbtree_node *node) {
+	if (!tree || !node || node == tree->nil) {
+		return;
+	}
+	
+	// 先递归销毁左右子树
+	_rbtree_destroy_recursive(tree, node->left);
+	_rbtree_destroy_recursive(tree, node->right);
+	
+	// 然后释放当前节点
+	if (node->key) {
+		kv_store_free(node->key);
+	}
+	if (node->value) {
+		kv_store_free(node->value);
+	}
+	kv_store_free(node);
 }
 
 
