@@ -2,10 +2,12 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-5-30 11:16:01
 * @Description: ConcordKV storage engine - kv_concurrency.c
  */
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #define _POSIX_C_SOURCE 200809L
 
 #include "kv_concurrency.h"
