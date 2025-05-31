@@ -2,7 +2,7 @@
  * @Author: Lzww0608  
  * @Date: 2025-5-30 22:31:57
  * @LastEditors: Lzww0608
- * @LastEditTime: 2025-5-30 22:31:59
+ * @LastEditTime:2025-6-1 00:46:47
  * @Description: ConcordKV 存储引擎工厂实现
  */
 #define _GNU_SOURCE     // 启用扩展函数
@@ -11,6 +11,7 @@
 #include "kv_engine_interface.h"
 #include "kv_store.h"
 #include "rbtree_adapter.h"  // 包含完整的rbtree定义
+#include "btree_adapter.h"   // B+Tree适配器
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -20,6 +21,7 @@
 static int array_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
 static int rbtree_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
 static int hash_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
+static int btree_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
 
 // === 引擎类型字符串映射 ===
 static const char* engine_type_names[] = {
@@ -339,6 +341,99 @@ static kv_engine_vtable_t hash_vtable = {
     // 其他函数指针设为NULL
 };
 
+// === BTree存储引擎适配器 ===
+static int btree_adapter_set(kv_engine_t *engine, const char *key, const char *value) {
+    KV_ENGINE_CHECK_VALID(engine);
+    if (!key || !value) return KV_ERR_PARAM;
+    
+    btree_t *tree = (btree_t*)engine->engine_data;
+    int ret = kvs_btree_set(tree, (char*)key, (char*)value);
+    
+    if (ret == 0) {
+        engine->stats.write_count++;
+    }
+    
+    return ret == 0 ? KV_ERR_NONE : KV_ERR_SYS;
+}
+
+static char* btree_adapter_get(kv_engine_t *engine, const char *key) {
+    KV_ENGINE_CHECK_VALID_NULL(engine);
+    if (!key) return NULL;
+    
+    btree_t *tree = (btree_t*)engine->engine_data;
+    char *value = kvs_btree_get(tree, (char*)key);
+    
+    engine->stats.read_count++;
+    
+    return value;
+}
+
+static int btree_adapter_delete(kv_engine_t *engine, const char *key) {
+    KV_ENGINE_CHECK_VALID(engine);
+    if (!key) return KV_ERR_PARAM;
+    
+    btree_t *tree = (btree_t*)engine->engine_data;
+    
+    // 先检查键是否存在
+    char *existing_value = kvs_btree_get(tree, (char*)key);
+    if (existing_value == NULL) {
+        // 键不存在
+        return KV_ERR_NOT_FOUND;
+    }
+    
+    // 键存在，执行删除
+    int ret = kvs_btree_delete(tree, (char*)key);
+    
+    if (ret == 0) {
+        engine->stats.delete_count++;
+        return KV_ERR_NONE;
+    }
+    
+    // 删除失败
+    return KV_ERR_SYS;
+}
+
+static int btree_adapter_update(kv_engine_t *engine, const char *key, const char *value) {
+    KV_ENGINE_CHECK_VALID(engine);
+    if (!key || !value) return KV_ERR_PARAM;
+    
+    btree_t *tree = (btree_t*)engine->engine_data;
+    int ret = kvs_btree_modify(tree, (char*)key, (char*)value);
+    
+    return ret == 0 ? KV_ERR_NONE : (ret > 0 ? KV_ERR_NOT_FOUND : KV_ERR_SYS);
+}
+
+static int btree_adapter_count(kv_engine_t *engine) {
+    KV_ENGINE_CHECK_VALID(engine);
+    
+    btree_t *tree = (btree_t*)engine->engine_data;
+    return kvs_btree_count(tree);
+}
+
+static int btree_adapter_destroy_impl(kv_engine_t *engine) {
+    if (!engine || !engine->engine_data) return KV_ERR_PARAM;
+    
+    btree_t *tree = (btree_t*)engine->engine_data;
+    
+    // 直接调用kv_store_btree_destroy，它内部会调用btree_destroy
+    kv_store_btree_destroy(tree);
+    engine->engine_data = NULL;
+    engine->state = KV_ENGINE_STATE_SHUTDOWN;
+    
+    return KV_ERR_NONE;
+}
+
+static kv_engine_vtable_t btree_vtable = {
+    .set = btree_adapter_set,
+    .get = btree_adapter_get,
+    .delete = btree_adapter_delete,
+    .update = btree_adapter_update,
+    .count = btree_adapter_count,
+    .destroy = btree_adapter_destroy_impl,
+    .init = btree_engine_init,
+    // 其他函数指针设为NULL
+};
+
 // === 引擎初始化函数 ===
 static int array_engine_init(kv_engine_t *engine, const kv_engine_config_t *config) {
     if (!engine) return KV_ERR_PARAM;
@@ -407,6 +502,29 @@ static int hash_engine_init(kv_engine_t *engine, const kv_engine_config_t *confi
     return KV_ERR_NONE;
 }
 
+static int btree_engine_init(kv_engine_t *engine, const kv_engine_config_t *config) {
+    if (!engine) return KV_ERR_PARAM;
+    
+    // 使用配置中的参数或默认值
+    int order = BTREE_DEFAULT_ORDER;
+    if (config && config->max_keys_per_node > 0) {
+        order = config->max_keys_per_node;
+    }
+    
+    // 直接创建B+Tree
+    btree_t *tree = kv_store_btree_create(order);
+    if (!tree) {
+        KV_ERROR(KV_ERR_SYS, "Failed to create btree storage");
+        return KV_ERR_SYS;
+    }
+    
+    engine->engine_data = tree;
+    engine->state = KV_ENGINE_STATE_RUNNING;
+    strncpy(engine->name, "BTree Engine", sizeof(engine->name) - 1);
+    
+    return KV_ERR_NONE;
+}
+
 // === 工厂函数实现 ===
 kv_engine_t* kv_engine_create(kv_engine_type_t type, const kv_engine_config_t *config) {
     if (type >= KV_ENGINE_MAX) {
@@ -456,6 +574,8 @@ kv_engine_t* kv_engine_create(kv_engine_type_t type, const kv_engine_config_t *c
             engine->vtable = &hash_vtable;
             break;
         case KV_ENGINE_BTREE:
+            engine->vtable = &btree_vtable;
+            break;
         case KV_ENGINE_LSM:
             // 这些引擎待实现
             kv_store_free(engine);
