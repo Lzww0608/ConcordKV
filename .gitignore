@@ -1,0 +1,129 @@
+# 编译产物
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# 目标文件和可执行文件
+kvserver
+libkvstore.so
+kv_engine_test
+btree_test
+debug_btree
+simple_debug
+btree_production_test
+test_hash_optimized
+simple_hash_test
+
+# 调试文件
+*.dSYM/
+*.gdb_history
+core.*
+vgcore.*
+
+# 日志文件
+*.log
+*.out
+*.err
+logs/
+*.debug
+
+# 临时文件
+*~
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 编辑器和IDE文件
+.vscode/
+.idea/
+*.sublime-*
+.emacs.desktop
+.emacs.desktop.lock
+
+# 编译目录
+build/
+cmake-build-*/
+.cmake/
+
+# 测试和性能数据
+test_data/
+benchmark_results/
+perf_data/
+*.prof
+*.trace
+
+# 数据库和持久化文件
+*.db
+*.sqlite
+*.wal
+*.snapshot
+data/
+storage/
+
+# 配置文件（保留模板）
+config.local
+*.local.conf
+
+# 包管理器
+.pkg/
+.rpm/
+.deb/
+
+# 系统文件
+.fuse_hidden*
+.nfs*
+
+# Go语言相关（Go客户端部分）
+# 如果有Go代码的话
+vendor/
+*.test
+*.cover
+*.out
+
+# Python相关（如果有Python工具）
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 文档生成
+docs/_build/
+*.pdf
+
+# 密钥和证书
+*.key
+*.pem
+*.crt
+*.p12
+secrets/
+
+# 性能分析
+*.perf
+gmon.out
+callgrind.out.*
+
+# 内存检查
+valgrind-*.log
+*.memcheck
+
+# CMake相关
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+_deps/
+
+# 自动生成的文件
+*_generated.h
+*_generated.c
+version.h 
