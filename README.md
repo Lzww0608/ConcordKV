@@ -242,7 +242,7 @@ tests/kvserver_tests/
 
 ## 🤝 贡献
 
-我们欢迎各种形式的贡献！
+欢迎各种形式的贡献！
 
 ### 贡献方式
 - 🐛 **Bug报告** - 通过Issue报告问题
@@ -261,17 +261,13 @@ tests/kvserver_tests/
 
 本项目采用[MIT License](LICENSE)开源协议。
 
-## 🙏 致谢
-
-感谢所有为ConcordKV项目做出贡献的开发者和社区成员！
 
 ## 📞 联系我们
 
-- **项目主页**: https://github.com/your-org/ConcordKV
-- **问题反馈**: https://github.com/your-org/ConcordKV/issues
-- **技术讨论**: https://discord.gg/concordkv
+- **项目主页**: https://github.com/Lzww0608/ConcordKV
+- **问题反馈**: https://github.com/Lzww0608/ConcordKV/issues
 
 ---
 
-⭐ **如果您觉得ConcordKV有用，请给我们一个Star！**
+⭐ **如果您觉得ConcordKV有用，请给我一个Star！**
 
