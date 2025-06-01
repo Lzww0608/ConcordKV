@@ -1,144 +1,125 @@
 # ConcordKV 文档中心
 
-欢迎来到 ConcordKV 文档中心！这里提供了项目的完整文档，帮助您快速了解和使用 ConcordKV 分布式键值存储系统。
+欢迎来到ConcordKV项目的文档中心！本目录包含了项目的完整技术文档，按照功能模块分类组织。
 
-## 📚 文档导航
+## 📁 文档目录结构
 
-### 🚀 快速开始
-- [项目概述](../README.md) - 项目介绍、功能特性和快速开始指南
-- [系统架构](../ARCHITECTURE.md) - 详细的系统架构设计和技术细节
+### 🔧 [kvserver/](./kvserver/) - KV服务器核心组件
+KV服务器的核心实现、API接口和测试指南。
 
-### 📖 核心文档
-- [开发计划](ROADMAP.md) - 项目开发路线图和进展状态
-- [API参考](kvserver-api-reference.md) - 完整的存储引擎API文档
-- [测试指南](kvserver-testing-guide.md) - 全面的测试方法和最佳实践
-- [Raft设计](raft-design.md) - Raft共识协议的设计和实现
+- **[API.md](./kvserver/API.md)** - KV服务器API参考手册
+- **[kvserver-api-reference.md](./kvserver/kvserver-api-reference.md)** - 详细的API接口文档
+- **[kvserver-testing-guide.md](./kvserver/kvserver-testing-guide.md)** - 测试框架和测试指南
 
-### 🧪 测试相关
-- [测试套件概览](../tests/README.md) - 测试目录结构和使用指南
-- [增强持久化完成总结](../tests/COMPLETION_SUMMARY.md) - 最新功能开发完成报告
-- [Raft服务器测试结果](../tests/raftserver/TEST_RESULTS.md) - Raft服务器测试验证结果
+### 🗄️ [storage-engines/](./storage-engines/) - 存储引擎实现
+各种存储引擎的设计文档、优化记录和性能分析。
 
-### 🔧 模块文档
+- **[HASH_OPTIMIZATION_COMPLETE.md](./storage-engines/HASH_OPTIMIZATION_COMPLETE.md)** - Hash存储引擎优化完整记录
+- **LSM_TREE_DESIGN.md** - LSM-Tree存储引擎设计文档 *(待创建)*
+- **SSTABLE_FORMAT_SPEC.md** - SSTable文件格式规范 *(待创建)*
+- **BTREE_IMPLEMENTATION.md** - B+Tree实现文档 *(待创建)*
 
-#### 存储引擎 (kvserver)
-- [API参考](kvserver-api-reference.md) - 存储引擎完整API文档
-- [测试指南](kvserver-testing-guide.md) - 存储引擎测试方法
+### 🌐 [distributed-systems/](./distributed-systems/) - 分布式系统组件
+分布式事务、Raft协议、集群成员管理等分布式系统核心组件。
 
-#### Raft服务器 (raftserver)
-- [Raft服务器README](../raftserver/README.md) - Raft服务器使用指南
-- [Raft设计文档](raft-design.md) - Raft协议设计细节
+- **[DISTRIBUTED_TRANSACTION_IMPLEMENTATION.md](./distributed-systems/DISTRIBUTED_TRANSACTION_IMPLEMENTATION.md)** - 分布式事务系统实现详解
+- **[MEMBERSHIP_IMPLEMENTATION.md](./distributed-systems/MEMBERSHIP_IMPLEMENTATION.md)** - 集群成员管理实现
+- **[raft-design.md](./distributed-systems/raft-design.md)** - Raft协议设计文档
 
-#### 客户端库 (client)
-- [Go客户端](../client/go/README.md) - Go语言客户端使用指南
-- [客户端概览](../client/README.md) - 客户端库总体介绍
+### 📋 [project-management/](./project-management/) - 项目管理文档
+项目路线图、开发规范、贡献指南等项目管理相关文档。
 
-#### 通用模块 (common)
-- [Common模块](../common/README.md) - 通用工具和基础设施
-- [API参考](../common/doc/api_reference.md) - Common模块API文档
-- [架构设计](../common/doc/architecture.md) - Common模块架构设计
-- [使用示例](../common/doc/examples.md) - 详细的使用示例和最佳实践
+- **[ROADMAP.md](./project-management/ROADMAP.md)** - 项目开发路线图和进展跟踪
+- **[IMPLEMENTATION_SUMMARY.md](./project-management/IMPLEMENTATION_SUMMARY.md)** - 项目实现总结
+- **[CONTRIBUTING.md](./project-management/CONTRIBUTING.md)** - 贡献者指南
 
-## 📋 文档分类
+### 🐛 [debugging-guides/](./debugging-guides/) - 调试指南和问题解决
+详细的调试过程记录、问题分析和解决方案。
 
-### 按用户类型
+- **[LSM_SSTABLE_DEBUG_PROCESS.md](./debugging-guides/LSM_SSTABLE_DEBUG_PROCESS.md)** - LSM-Tree SSTable实现调试过程详细记录
 
-#### 👨‍💻 开发者
-- [项目概述](../README.md) - 了解项目基本信息
-- [系统架构](../ARCHITECTURE.md) - 理解系统设计
-- [API参考](kvserver-api-reference.md) - 查阅API接口
-- [测试指南](kvserver-testing-guide.md) - 学习测试方法
+## 🚀 快速开始
 
-#### 🔧 运维人员
-- [快速开始](../README.md#快速开始) - 部署和运行指南
-- [测试套件](../tests/README.md) - 验证系统功能
-- [监控指标](../common/doc/examples.md#监控指标示例) - 系统监控方法
+### 对于新开发者
+1. 先阅读 [ROADMAP.md](./project-management/ROADMAP.md) 了解项目整体架构和进展
+2. 查看 [CONTRIBUTING.md](./project-management/CONTRIBUTING.md) 了解如何参与项目
+3. 根据兴趣选择相应的技术文档深入学习
 
-#### 📊 架构师
-- [系统架构](../ARCHITECTURE.md) - 深入理解架构设计
-- [Raft设计](raft-design.md) - 分布式一致性设计
-- [性能特性](../README.md#性能特性) - 了解性能指标
+### 对于API使用者
+1. 阅读 [API.md](./kvserver/API.md) 获取API概览
+2. 参考 [kvserver-api-reference.md](./kvserver/kvserver-api-reference.md) 获取详细接口说明
+3. 查看 [kvserver-testing-guide.md](./kvserver/kvserver-testing-guide.md) 了解测试方法
 
-### 按功能模块
+### 对于存储引擎开发者
+1. 查看 [storage-engines/](./storage-engines/) 目录下的相关设计文档
+2. 参考 [debugging-guides/](./debugging-guides/) 中的调试经验
+3. 了解各存储引擎的性能特征和适用场景
 
-#### 存储引擎
-- [API文档](kvserver-api-reference.md)
-- [测试指南](kvserver-testing-guide.md)
-- [增强持久化](../tests/COMPLETION_SUMMARY.md)
+### 对于分布式系统开发者
+1. 阅读 [distributed-systems/](./distributed-systems/) 目录下的系统设计文档
+2. 重点关注分布式事务和Raft协议的实现细节
+3. 了解集群管理和容错机制
 
-#### 分布式协调
-- [Raft设计](raft-design.md)
-- [Raft服务器](../raftserver/README.md)
-- [测试结果](../tests/raftserver/TEST_RESULTS.md)
+## 📊 项目当前状态
 
-#### 客户端接口
-- [Go客户端](../client/go/README.md)
-- [客户端概览](../client/README.md)
+### ✅ 已完成模块
+- **基础存储引擎**: Array、RBTree、Hash、B+Tree
+- **LSM-Tree组件**: MemTable、MemTable Manager、SSTable文件格式
+- **分布式事务**: 两阶段提交协议、优先级调度
+- **集群管理**: Raft协议基础、成员管理
 
-#### 基础设施
-- [Common模块](../common/README.md)
-- [工具和配置](../common/doc/api_reference.md)
+### 🔄 进行中模块
+- **LSM-Tree压缩**: Compaction机制和Level管理
+- **完整集成**: LSM-Tree主控制器、WAL集成
+- **性能优化**: 多存储引擎优化和监控
 
-## 🔍 快速查找
+### 📈 性能指标
+| 存储引擎 | 插入性能 | 查找性能 | 内存开销 | 状态 |
+|----------|----------|----------|----------|------|
+| LSM Manager | 639K ops/sec | 2.17M ops/sec | 137B/entry | 🟢 生产就绪 |
+| SSTable | 1.66M ops/sec | 高效 | 105.7B/entry | 🟢 生产就绪 |
+| B+Tree | 105K ops/sec | 105K ops/sec | 4-5% | 🟢 生产就绪 |
+| Hash | 1.46M ops/sec | 高效 | 15-20% | 🟢 生产就绪 |
 
-### 常见问题
-- **如何开始使用？** → [快速开始](../README.md#快速开始)
-- **如何运行测试？** → [测试指南](../tests/README.md#快速开始)
-- **API如何调用？** → [API参考](kvserver-api-reference.md)
-- **性能如何？** → [性能特性](../README.md#性能特性)
-- **架构是什么样的？** → [系统架构](../ARCHITECTURE.md)
-
-### 开发任务
-- **添加新功能** → [开发计划](ROADMAP.md) + [API参考](kvserver-api-reference.md)
-- **修复Bug** → [测试指南](kvserver-testing-guide.md)
-- **性能优化** → [架构文档](../ARCHITECTURE.md#性能优化策略)
-- **集成测试** → [测试套件](../tests/README.md)
-
-### 部署运维
-- **单节点部署** → [快速开始](../README.md#启动服务)
-- **集群部署** → [Raft服务器](../raftserver/README.md)
-- **监控配置** → [Common模块](../common/doc/examples.md)
-- **故障排除** → [测试指南](kvserver-testing-guide.md#故障排除)
-
-## 📈 项目状态
-
-### ✅ 已完成
-- 核心存储引擎 (数组、红黑树、哈希表)
-- 增强持久化机制 (日志压缩、增量持久化)
-- 完整的Raft协议实现
-- 事务支持和并发控制
-- Go客户端库
-- 完整的测试套件
-
-### 🚧 进行中
-- 死锁检测和预防
-- 分布式事务支持
-- C++客户端库
-- 性能优化
-
-### 🔮 计划中
-- 跨数据中心复制
-- 可视化管理界面
-- 更多编程语言客户端
-- 安全性增强
-
-## 🤝 贡献文档
-
-我们欢迎文档贡献！如果您发现文档有误或需要改进：
-
-1. **报告问题**：在GitHub Issues中报告文档问题
-2. **提交改进**：直接提交Pull Request改进文档
-3. **添加示例**：贡献更多使用示例和最佳实践
-4. **翻译文档**：帮助翻译文档到其他语言
+## 📝 文档贡献
 
 ### 文档规范
-- 使用清晰的标题和结构
-- 提供完整的代码示例
-- 包含必要的解释和背景信息
-- 保持文档的及时更新
+- 使用 Markdown 格式
+- 包含详细的代码示例和性能数据
+- 提供问题分析和解决方案
+- 保持文档的时效性和准确性
+
+### 新增文档
+如需新增文档，请按照以下分类放置：
+- **技术实现**: 存储引擎或分布式系统实现 → `storage-engines/` 或 `distributed-systems/`
+- **API文档**: 接口说明和使用指南 → `kvserver/`
+- **调试记录**: 问题分析和解决过程 → `debugging-guides/`
+- **项目管理**: 计划、流程、规范 → `project-management/`
+
+### 文档更新
+定期更新文档内容，确保与代码实现同步：
+- 性能数据更新
+- 新功能文档补充
+- 已知问题和解决方案更新
+
+## 🔗 相关链接
+
+- **项目仓库**: [ConcordKV GitHub](https://github.com/username/ConcordKV)
+- **问题跟踪**: [GitHub Issues](https://github.com/username/ConcordKV/issues)
+- **讨论区**: [GitHub Discussions](https://github.com/username/ConcordKV/discussions)
+- **发布记录**: [Releases](https://github.com/username/ConcordKV/releases)
+
+## 🎯 文档质量目标
+
+- **完整性**: 覆盖所有主要功能模块
+- **准确性**: 与代码实现保持同步
+- **可读性**: 清晰的结构和详细的说明
+- **实用性**: 包含实际的使用示例和性能数据
 
 ---
 
-**ConcordKV** - 高性能分布式键值存储系统
+**最后更新**: 2025-6-1  
+**项目版本**: v0.3.0  
+**文档状态**: 🟢 活跃维护  
 
-如有疑问，请查阅相关文档或在GitHub Issues中提问。 
+有任何文档相关问题，请提交 Issue 或 Pull Request！ 
