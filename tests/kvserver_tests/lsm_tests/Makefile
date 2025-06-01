@@ -1,123 +1,177 @@
-# LSM-Tree MemTable 测试 Makefile
-# @Author: Lzww0608
-# @Date: 2025-12-19 15:30:00
+# LSM-Tree MemTable测试Makefile
+# @Author: Lzww0608  
+# @Date: 2025-6-1 12:00:00
 
 CC = gcc
-CFLAGS = -Wall -Wextra -g -O2 -std=c99 -pthread
-INCLUDES = -I../../../kvserver -I../../../common
+CFLAGS = -Wall -Wextra -g -std=c99 -pthread
+INCLUDES = -I../../../kvserver
 LIBS = -lpthread
 
 # 源文件路径
-KVSERVER_DIR = ../../../kvserver
-COMMON_DIR = ../../../common
-SRC_DIR = .
-
-# 需要的源文件
-LSM_SOURCES = $(KVSERVER_DIR)/lsm_memtable.c
-KV_SOURCES = $(KVSERVER_DIR)/kv_memory.c $(KVSERVER_DIR)/kv_error.c
-TEST_SOURCES = lsm_memtable_test.c
+KVSERVER_SRC = ../../../kvserver
+TEST_SRC = .
 
 # 目标文件
-OBJECTS = lsm_memtable.o kv_memory.o kv_error.o lsm_memtable_test.o
-TARGET = lsm_memtable_test
+MEMTABLE_MANAGER_TEST = lsm_memtable_manager_test
+MEMTABLE_TEST = lsm_memtable_test
+
+# LSM相关源文件
+LSM_SOURCES = $(KVSERVER_SRC)/lsm_memtable.c \
+              $(KVSERVER_SRC)/lsm_memtable_manager.c \
+              $(KVSERVER_SRC)/kv_memory.c \
+              $(KVSERVER_SRC)/kv_error.c
+
+# 测试源文件
+TEST_SOURCES = lsm_memtable_manager_test.c
+
+# 目标文件列表
+LSM_OBJECTS = $(patsubst $(KVSERVER_SRC)/%.c, %.o, $(LSM_SOURCES))
+TEST_OBJECTS = $(patsubst %.c, %.o, $(TEST_SOURCES))
 
 # 默认目标
-all: $(TARGET)
+.PHONY: all clean test memtable_manager_test memtable_test help
 
-# 编译目标程序
-$(TARGET): $(OBJECTS)
-	@echo "正在链接 $(TARGET)..."
+all: $(MEMTABLE_MANAGER_TEST) $(MEMTABLE_TEST)
+
+# 构建管理器测试
+$(MEMTABLE_MANAGER_TEST): $(LSM_OBJECTS) lsm_memtable_manager_test.o
+	@echo "🔗 链接 $@..."
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
-	@echo "✓ $(TARGET) 编译完成"
+	@echo "✅ 构建完成: $@"
 
-# 编译LSM MemTable源文件
-lsm_memtable.o: $(LSM_SOURCES)
-	@echo "正在编译 lsm_memtable.c..."
-	$(CC) $(CFLAGS) $(INCLUDES) -c $(KVSERVER_DIR)/lsm_memtable.c -o $@
+# 构建MemTable测试（如果存在）
+$(MEMTABLE_TEST): $(LSM_OBJECTS) lsm_memtable_test.o
+	@if [ -f "lsm_memtable_test.c" ]; then \
+		echo "🔗 链接 $@..."; \
+		$(CC) $(CFLAGS) -o $@ $^ $(LIBS); \
+		echo "✅ 构建完成: $@"; \
+	else \
+		echo "ℹ️  lsm_memtable_test.c 不存在，跳过构建"; \
+	fi
 
-# 编译内存管理源文件
-kv_memory.o: $(KVSERVER_DIR)/kv_memory.c
-	@echo "正在编译 kv_memory.c..."
-	$(CC) $(CFLAGS) $(INCLUDES) -c $(KVSERVER_DIR)/kv_memory.c -o $@
+# 编译规则
+%.o: $(KVSERVER_SRC)/%.c
+	@echo "🔨 编译 $<..."
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-# 编译错误处理源文件
-kv_error.o: $(KVSERVER_DIR)/kv_error.c
-	@echo "正在编译 kv_error.c..."
-	$(CC) $(CFLAGS) $(INCLUDES) -c $(KVSERVER_DIR)/kv_error.c -o $@
+%.o: %.c
+	@echo "🔨 编译 $<..."
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-# 编译测试源文件
-lsm_memtable_test.o: $(TEST_SOURCES)
-	@echo "正在编译 lsm_memtable_test.c..."
-	$(CC) $(CFLAGS) $(INCLUDES) -c lsm_memtable_test.c -o $@
+# 运行管理器测试
+test_manager: $(MEMTABLE_MANAGER_TEST)
+	@echo "🧪 运行LSM-Tree MemTable管理器测试..."
+	@echo "=================================="
+	./$(MEMTABLE_MANAGER_TEST)
 
-# 运行测试
-test: $(TARGET)
-	@echo "开始运行 LSM-Tree MemTable 测试..."
-	@echo "================================================"
-	./$(TARGET)
-	@echo "================================================"
+# 运行MemTable测试
+test_memtable: $(MEMTABLE_TEST)
+	@if [ -f "$(MEMTABLE_TEST)" ]; then \
+		echo "🧪 运行LSM-Tree MemTable测试..."; \
+		echo "=============================="; \
+		./$(MEMTABLE_TEST); \
+	else \
+		echo "ℹ️  MemTable测试程序不存在"; \
+	fi
 
-# 运行测试并显示详细信息
-test-verbose: $(TARGET)
-	@echo "开始运行 LSM-Tree MemTable 详细测试..."
-	@echo "================================================"
-	./$(TARGET) -v
-	@echo "================================================"
+# 运行所有测试
+test: test_manager test_memtable
+	@echo ""
+	@echo "🎉 LSM-Tree测试完成!"
 
-# 运行内存泄漏检测
-test-valgrind: $(TARGET)
-	@echo "开始运行内存泄漏检测..."
-	@echo "================================================"
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(TARGET)
-	@echo "================================================"
+# 内存检查
+memcheck_manager: $(MEMTABLE_MANAGER_TEST)
+	@echo "🔍 运行Valgrind内存检查..."
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(MEMTABLE_MANAGER_TEST)
 
-# 运行性能测试
-test-perf: $(TARGET)
-	@echo "开始运行性能测试..."
-	@echo "================================================"
-	time ./$(TARGET)
-	@echo "================================================"
+# 性能测试
+perf_test: $(MEMTABLE_MANAGER_TEST)
+	@echo "⚡ 运行性能测试..."
+	@echo "=================="
+	time ./$(MEMTABLE_MANAGER_TEST)
 
-# 清理生成的文件
+# 压力测试
+stress_test: $(MEMTABLE_MANAGER_TEST)
+	@echo "💪 运行压力测试（多次执行）..."
+	@echo "=============================="
+	@for i in 1 2 3 4 5; do \
+		echo "第$$i次测试:"; \
+		./$(MEMTABLE_MANAGER_TEST) || exit 1; \
+		echo ""; \
+	done
+	@echo "✅ 压力测试全部通过!"
+
+# 清理
 clean:
-	@echo "正在清理生成的文件..."
-	rm -f $(OBJECTS) $(TARGET)
-	@echo "✓ 清理完成"
+	@echo "🧹 清理编译文件..."
+	rm -f *.o $(MEMTABLE_MANAGER_TEST) $(MEMTABLE_TEST)
+	@echo "✅ 清理完成"
 
-# 重新编译
-rebuild: clean all
-
-# 检查源文件是否存在
-check-sources:
-	@echo "检查源文件是否存在..."
-	@test -f $(KVSERVER_DIR)/lsm_memtable.h || (echo "❌ 未找到 lsm_memtable.h" && exit 1)
-	@test -f $(KVSERVER_DIR)/lsm_memtable.c || (echo "❌ 未找到 lsm_memtable.c" && exit 1)
-	@test -f $(KVSERVER_DIR)/kv_memory.c || (echo "❌ 未找到 kv_memory.c" && exit 1)
-	@test -f $(KVSERVER_DIR)/kv_error.c || (echo "❌ 未找到 kv_error.c" && exit 1)
-	@test -f lsm_memtable_test.c || (echo "❌ 未找到 lsm_memtable_test.c" && exit 1)
-	@echo "✓ 所有源文件都存在"
-
-# 显示帮助信息
+# 帮助信息
 help:
-	@echo "LSM-Tree MemTable 测试 Makefile"
-	@echo "================================"
-	@echo "可用的目标："
-	@echo "  all           - 编译所有文件（默认）"
-	@echo "  $(TARGET)     - 编译测试程序"
-	@echo "  test          - 运行基础测试"
-	@echo "  test-verbose  - 运行详细测试"
-	@echo "  test-valgrind - 运行内存泄漏检测"
-	@echo "  test-perf     - 运行性能测试"
-	@echo "  clean         - 清理生成的文件"
-	@echo "  rebuild       - 重新编译"
-	@echo "  check-sources - 检查源文件是否存在"
-	@echo "  help          - 显示此帮助信息"
+	@echo "LSM-Tree MemTable测试Makefile使用说明"
+	@echo "======================================"
+	@echo ""
+	@echo "可用目标:"
+	@echo "  all                    - 构建所有测试程序"
+	@echo "  $(MEMTABLE_MANAGER_TEST)  - 构建管理器测试程序"
+	@echo "  $(MEMTABLE_TEST)       - 构建MemTable测试程序"
+	@echo ""
+	@echo "测试目标:"
+	@echo "  test                   - 运行所有测试"
+	@echo "  test_manager           - 运行管理器测试"
+	@echo "  test_memtable          - 运行MemTable测试"
+	@echo ""
+	@echo "调试目标:"
+	@echo "  memcheck_manager       - 运行Valgrind内存检查"
+	@echo "  perf_test              - 运行性能测试"
+	@echo "  stress_test            - 运行压力测试"
+	@echo ""
+	@echo "维护目标:"
+	@echo "  clean                  - 清理编译文件"
+	@echo "  help                   - 显示此帮助信息"
+	@echo ""
+	@echo "使用示例:"
+	@echo "  make                   # 构建所有测试"
+	@echo "  make test              # 运行所有测试"
+	@echo "  make test_manager      # 只运行管理器测试"
+	@echo "  make memcheck_manager  # 内存检查"
+	@echo "  make clean             # 清理"
 
-# 安装依赖项（如果需要）
-install-deps:
-	@echo "检查依赖项..."
-	@which gcc > /dev/null || (echo "❌ 需要安装 gcc" && exit 1)
-	@which valgrind > /dev/null || echo "⚠️  建议安装 valgrind 以进行内存检测"
-	@echo "✓ 依赖项检查完成"
+# 检查依赖
+check_deps:
+	@echo "🔍 检查依赖文件..."
+	@echo "LSM源文件检查:"
+	@for file in $(LSM_SOURCES); do \
+		if [ -f "$$file" ]; then \
+			echo "  ✅ $$file"; \
+		else \
+			echo "  ❌ $$file (缺失)"; \
+		fi \
+	done
+	@echo ""
+	@echo "测试文件检查:"
+	@for file in $(TEST_SOURCES); do \
+		if [ -f "$$file" ]; then \
+			echo "  ✅ $$file"; \
+		else \
+			echo "  ❌ $$file (缺失)"; \
+		fi \
+	done
 
-.PHONY: all test test-verbose test-valgrind test-perf clean rebuild check-sources help install-deps 
+# 显示编译信息
+info:
+	@echo "LSM-Tree测试编译信息"
+	@echo "==================="
+	@echo "编译器: $(CC)"
+	@echo "编译选项: $(CFLAGS)"
+	@echo "包含路径: $(INCLUDES)"
+	@echo "链接库: $(LIBS)"
+	@echo ""
+	@echo "LSM源文件:"
+	@for file in $(LSM_SOURCES); do echo "  $$file"; done
+	@echo ""
+	@echo "测试文件:"
+	@for file in $(TEST_SOURCES); do echo "  $$file"; done
+
+.SUFFIXES: .c .o 

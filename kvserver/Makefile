@@ -19,11 +19,14 @@ ENGINE_OBJS = kv_engine_factory.o
 # B+Tree存储引擎文件
 BTREE_OBJS = kvstore_btree.o btree_adapter.o
 
+# LSM-Tree相关文件 🔥
+LSM_OBJS = lsm_memtable.o lsm_memtable_manager.o
+
 # 所有目标文件
-ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS)
+ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS)
 
 # 测试程序使用的所有对象文件
-ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS)
+ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS)
 
 # 目标可执行文件
 TARGET = kvserver
@@ -33,6 +36,8 @@ BTREE_TEST_TARGET = btree_test
 DEBUG_BTREE_TARGET = debug_btree
 SIMPLE_DEBUG_TARGET = simple_debug
 PRODUCTION_TEST_TARGET = btree_production_test
+LSM_MANAGER_TEST_TARGET = lsm_memtable_manager_test
+LSM_MEMTABLE_TEST_TARGET = lsm_memtable_test
 
 # 默认目标
 all: $(TARGET) $(SHARED_LIB)
@@ -63,6 +68,14 @@ $(SIMPLE_DEBUG_TARGET): ../tests/kvserver_tests/btree_tests/simple_test.o $(ALL_
 
 # 编译生产环境测试程序
 $(PRODUCTION_TEST_TARGET): ../tests/kvserver_tests/btree_tests/btree_production_test.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# 编译LSM-Tree管理器测试程序
+$(LSM_MANAGER_TEST_TARGET): ../tests/kvserver_tests/lsm_tests/lsm_memtable_manager_test.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# 编译LSM-Tree内存表测试程序
+$(LSM_MEMTABLE_TEST_TARGET): ../tests/kvserver_tests/lsm_tests/lsm_memtable_test.o $(ALL_TEST_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # 规则：从.c文件生成.o文件
@@ -101,6 +114,10 @@ $(PRODUCTION_TEST_TARGET): ../tests/kvserver_tests/btree_tests/btree_production_
 ../tests/kvserver_tests/engine_tests/%.o: ../tests/kvserver_tests/engine_tests/%.c
 	$(CC) $(CFLAGS) -I. -c $< -o $@
 
+# 编译tests/kvserver_tests/lsm_tests目录下的.c文件 🔥
+../tests/kvserver_tests/lsm_tests/%.o: ../tests/kvserver_tests/lsm_tests/%.c
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
 # 运行测试
 test: $(TEST_TARGET)
 	@echo "🚀 运行存储引擎接口测试..."
@@ -126,8 +143,22 @@ run_production_test: $(PRODUCTION_TEST_TARGET)
 	@echo "🏭 运行B+Tree生产环境级别检查..."
 	./$(PRODUCTION_TEST_TARGET)
 
+# 运行LSM-Tree管理器测试
+run_lsm_manager_test: $(LSM_MANAGER_TEST_TARGET)
+	@echo "🎯 运行LSM-Tree管理器测试..."
+	./$(LSM_MANAGER_TEST_TARGET)
+
+# 运行LSM-Tree内存表测试
+run_lsm_memtable_test: $(LSM_MEMTABLE_TEST_TARGET)
+	@echo "🎯 运行LSM-Tree内存表测试..."
+	./$(LSM_MEMTABLE_TEST_TARGET)
+
+# 运行LSM-Tree测试
+test_lsm: run_lsm_manager_test run_lsm_memtable_test
+	@echo "🔥 LSM-Tree测试完成"
+
 # 运行所有测试
-test_all: test run_btree_test
+test_all: test run_btree_test run_lsm_manager_test run_lsm_memtable_test
 	@echo "✅ 所有测试完成"
 
 # 运行Hash存储引擎测试
@@ -156,7 +187,7 @@ test_engine_interface:
 	@echo "引擎接口测试需要手动编译和运行"
 
 # 运行分类测试汇总
-test_by_category: test_hash test_rbtree test_array test_system test_engine_interface run_btree_test
+test_by_category: test_hash test_rbtree test_array test_system test_engine_interface run_btree_test test_lsm
 	@echo "🎯 所有分类测试完成"
 
 # 性能测试（更大数据量）
@@ -174,7 +205,7 @@ verify: $(ALL_OBJS)
 
 # 清理
 clean:
-	rm -f $(TARGET) $(SHARED_LIB) $(TEST_TARGET) $(BTREE_TEST_TARGET) $(DEBUG_BTREE_TARGET) $(SIMPLE_DEBUG_TARGET) $(PRODUCTION_TEST_TARGET) *.o ../tests/*.o ../tests/kvserver_tests/*.o
+	rm -f $(TARGET) $(SHARED_LIB) $(TEST_TARGET) $(BTREE_TEST_TARGET) $(DEBUG_BTREE_TARGET) $(SIMPLE_DEBUG_TARGET) $(PRODUCTION_TEST_TARGET) $(LSM_MANAGER_TEST_TARGET) $(LSM_MEMTABLE_TEST_TARGET) *.o ../tests/*.o ../tests/kvserver_tests/*.o
 
 # 深度清理（包括备份文件）
 clean_all: clean

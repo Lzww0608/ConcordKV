@@ -282,8 +282,8 @@
 **🟢 生产就绪状态**: LSM-Tree MemTable已满足生产环境使用需求
 
 ##### 3.1.2 不可变内存表（Immutable MemTable）(第6周)
-- [ ] 实现MemTable冻结机制
-- [ ] 实现多MemTable管理器
+- [x] 实现MemTable冻结机制
+- [x] 实现多MemTable管理器
   ```c
   typedef struct memtable_manager {
       memtable_t *active;     // 活跃内存表
@@ -292,7 +292,7 @@
       pthread_mutex_t lock;   // 管理器锁
   } memtable_manager_t;
   ```
-- [ ] 实现查找优先级：active -> immutable -> SSTable
+- [x] 实现查找优先级：active -> immutable -> SSTable
 
 #### 3.2 SSTable实现 (第7-8周)
 
