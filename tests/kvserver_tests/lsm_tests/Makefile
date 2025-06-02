@@ -1,10 +1,10 @@
-# LSM-Tree MemTable和SSTable测试Makefile
+# LSM-Tree MemTable、SSTable和压缩机制测试Makefile
 # @Author: Lzww0608  
-# @Date: 2025-6-1 12:00:00
-# @LastEditTime: 2025-6-1 14:30:00
+# @Date: 2025-6-2 23:45:25
+# @LastEditTime: 2025-6-2 23:45:32
 
 CC = gcc
-CFLAGS = -Wall -Wextra -g -std=c99 -pthread
+CFLAGS = -Wall -Wextra -g -std=c99 -pthread -D_GNU_SOURCE
 INCLUDES = -I../../../kvserver
 LIBS = -lpthread -lm
 
@@ -16,25 +16,27 @@ TEST_SRC = .
 MEMTABLE_MANAGER_TEST = lsm_memtable_manager_test
 MEMTABLE_TEST = lsm_memtable_test
 SSTABLE_TEST = lsm_sstable_test
+COMPACTION_TEST = lsm_compaction_test
 
 # LSM相关源文件
 LSM_SOURCES = $(KVSERVER_SRC)/lsm_memtable.c \
               $(KVSERVER_SRC)/lsm_memtable_manager.c \
               $(KVSERVER_SRC)/lsm_sstable.c \
+              $(KVSERVER_SRC)/lsm_compaction.c \
               $(KVSERVER_SRC)/kv_memory.c \
               $(KVSERVER_SRC)/kv_error.c
 
 # 测试源文件
-TEST_SOURCES = lsm_memtable_manager_test.c lsm_sstable_test.c
+TEST_SOURCES = lsm_memtable_manager_test.c lsm_sstable_test.c lsm_compaction_test.c
 
 # 目标文件列表
 LSM_OBJECTS = $(patsubst $(KVSERVER_SRC)/%.c, %.o, $(LSM_SOURCES))
 TEST_OBJECTS = $(patsubst %.c, %.o, $(TEST_SOURCES))
 
 # 默认目标
-.PHONY: all clean test memtable_manager_test memtable_test sstable_test help
+.PHONY: all clean test memtable_manager_test memtable_test sstable_test compaction_test help
 
-all: $(MEMTABLE_MANAGER_TEST) $(MEMTABLE_TEST) $(SSTABLE_TEST)
+all: $(MEMTABLE_MANAGER_TEST) $(MEMTABLE_TEST) $(SSTABLE_TEST) $(COMPACTION_TEST)
 
 # 构建管理器测试
 $(MEMTABLE_MANAGER_TEST): $(LSM_OBJECTS) lsm_memtable_manager_test.o
@@ -54,6 +56,12 @@ $(MEMTABLE_TEST): $(LSM_OBJECTS) lsm_memtable_test.o
 
 # 构建SSTable测试
 $(SSTABLE_TEST): $(LSM_OBJECTS) lsm_sstable_test.o
+	@echo "🔗 链接 $@..."
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+	@echo "✅ 构建完成: $@"
+
+# 构建压缩机制测试
+$(COMPACTION_TEST): $(LSM_OBJECTS) lsm_compaction_test.o
 	@echo "🔗 链接 $@..."
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 	@echo "✅ 构建完成: $@"
@@ -89,8 +97,14 @@ test_sstable: $(SSTABLE_TEST)
 	@echo "============================="
 	./$(SSTABLE_TEST)
 
+# 运行压缩机制测试
+test_compaction: $(COMPACTION_TEST)
+	@echo "🧪 运行LSM-Tree压缩机制测试..."
+	@echo "=============================="
+	./$(COMPACTION_TEST)
+
 # 运行所有测试
-test: test_manager test_memtable test_sstable
+test: test_manager test_memtable test_sstable test_compaction
 	@echo ""
 	@echo "🎉 LSM-Tree所有测试完成!"
 
@@ -103,11 +117,15 @@ memcheck_sstable: $(SSTABLE_TEST)
 	@echo "🔍 运行Valgrind内存检查（SSTable）..."
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(SSTABLE_TEST)
 
-memcheck: memcheck_manager memcheck_sstable
+memcheck_compaction: $(COMPACTION_TEST)
+	@echo "🔍 运行Valgrind内存检查（压缩机制）..."
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(COMPACTION_TEST)
+
+memcheck: memcheck_manager memcheck_sstable memcheck_compaction
 	@echo "🎉 所有内存检查完成!"
 
 # 性能测试
-perf_test: $(MEMTABLE_MANAGER_TEST) $(SSTABLE_TEST)
+perf_test: $(MEMTABLE_MANAGER_TEST) $(SSTABLE_TEST) $(COMPACTION_TEST)
 	@echo "⚡ 运行性能测试..."
 	@echo "=================="
 	@echo "MemTable管理器性能:"
@@ -115,9 +133,12 @@ perf_test: $(MEMTABLE_MANAGER_TEST) $(SSTABLE_TEST)
 	@echo ""
 	@echo "SSTable性能:"
 	time ./$(SSTABLE_TEST)
+	@echo ""
+	@echo "压缩机制性能:"
+	time ./$(COMPACTION_TEST)
 
 # 压力测试
-stress_test: $(MEMTABLE_MANAGER_TEST) $(SSTABLE_TEST)
+stress_test: $(MEMTABLE_MANAGER_TEST) $(SSTABLE_TEST) $(COMPACTION_TEST)
 	@echo "💪 运行压力测试（多次执行）..."
 	@echo "=============================="
 	@echo "管理器压力测试:"
@@ -132,55 +153,101 @@ stress_test: $(MEMTABLE_MANAGER_TEST) $(SSTABLE_TEST)
 		./$(SSTABLE_TEST) || exit 1; \
 		echo ""; \
 	done
+	@echo "压缩机制压力测试:"
+	@for i in 1 2 3; do \
+		echo "第$$i次测试:"; \
+		./$(COMPACTION_TEST) || exit 1; \
+		echo ""; \
+	done
 	@echo "✅ 压力测试全部通过!"
 
-# 快速测试（只运行SSTable）
-quick_test: $(SSTABLE_TEST)
-	@echo "🚀 快速SSTable测试..."
-	@echo "==================="
-	./$(SSTABLE_TEST)
+# 快速测试（只运行压缩机制）
+quick_test: $(COMPACTION_TEST)
+	@echo "🚀 快速压缩机制测试..."
+	@echo "===================="
+	./$(COMPACTION_TEST)
 
 # 生产环境测试
-production_test: $(SSTABLE_TEST)
-	@echo "🏭 生产环境SSTable测试..."
-	@echo "========================"
+production_test: $(SSTABLE_TEST) $(COMPACTION_TEST)
+	@echo "🏭 生产环境LSM-Tree测试..."
+	@echo "========================="
 	@echo "运行全面的SSTable功能验证..."
 	./$(SSTABLE_TEST)
 	@echo ""
+	@echo "运行全面的压缩机制验证..."
+	./$(COMPACTION_TEST)
+	@echo ""
 	@echo "文件系统检查..."
-	@ls -la /tmp/test_*.sst 2>/dev/null || echo "临时文件已清理"
+	@ls -la /tmp/*_test* 2>/dev/null || echo "临时文件已清理"
 	@echo "✅ 生产环境测试完成"
+
+# 完整的LSM-Tree集成测试
+integration_test: all
+	@echo "🔗 运行LSM-Tree完整集成测试..."
+	@echo "============================="
+	@echo "1. MemTable管理器测试:"
+	./$(MEMTABLE_MANAGER_TEST)
+	@echo ""
+	@echo "2. SSTable文件格式测试:"
+	./$(SSTABLE_TEST)
+	@echo ""
+	@echo "3. 压缩机制测试:"
+	./$(COMPACTION_TEST)
+	@echo ""
+	@echo "🎉 LSM-Tree完整集成测试通过!"
+
+# 压缩机制专项测试
+compaction_deep_test: $(COMPACTION_TEST)
+	@echo "🔍 压缩机制深度测试..."
+	@echo "===================="
+	@echo "标准测试:"
+	./$(COMPACTION_TEST)
+	@echo ""
+	@echo "内存检查测试:"
+	valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 ./$(COMPACTION_TEST)
+	@echo ""
+	@echo "多次重复测试:"
+	@for i in 1 2 3 4 5; do \
+		echo "第$$i次测试:"; \
+		./$(COMPACTION_TEST) || exit 1; \
+	done
+	@echo "✅ 压缩机制深度测试完成!"
 
 # 清理
 clean:
 	@echo "🧹 清理编译文件..."
-	rm -f *.o $(MEMTABLE_MANAGER_TEST) $(MEMTABLE_TEST) $(SSTABLE_TEST)
-	rm -f /tmp/test_*.sst
+	rm -f *.o $(MEMTABLE_MANAGER_TEST) $(MEMTABLE_TEST) $(SSTABLE_TEST) $(COMPACTION_TEST)
+	rm -f /tmp/test_*.sst /tmp/lsm_compaction_test*
 	@echo "✅ 清理完成"
 
 # 帮助信息
 help:
-	@echo "LSM-Tree MemTable和SSTable测试Makefile使用说明"
-	@echo "==============================================="
+	@echo "LSM-Tree MemTable、SSTable和压缩机制测试Makefile使用说明"
+	@echo "======================================================="
 	@echo ""
 	@echo "可用目标:"
 	@echo "  all                    - 构建所有测试程序"
 	@echo "  $(MEMTABLE_MANAGER_TEST)  - 构建管理器测试程序"
 	@echo "  $(MEMTABLE_TEST)       - 构建MemTable测试程序"
 	@echo "  $(SSTABLE_TEST)        - 构建SSTable测试程序"
+	@echo "  $(COMPACTION_TEST)     - 构建压缩机制测试程序"
 	@echo ""
 	@echo "测试目标:"
 	@echo "  test                   - 运行所有测试"
 	@echo "  test_manager           - 运行管理器测试"
 	@echo "  test_memtable          - 运行MemTable测试"
 	@echo "  test_sstable           - 运行SSTable测试"
-	@echo "  quick_test             - 快速SSTable测试"
+	@echo "  test_compaction        - 运行压缩机制测试"
+	@echo "  quick_test             - 快速压缩机制测试"
 	@echo "  production_test        - 生产环境测试"
+	@echo "  integration_test       - 完整集成测试"
+	@echo "  compaction_deep_test   - 压缩机制深度测试"
 	@echo ""
 	@echo "调试目标:"
 	@echo "  memcheck               - 运行所有Valgrind内存检查"
 	@echo "  memcheck_manager       - 运行管理器内存检查"
 	@echo "  memcheck_sstable       - 运行SSTable内存检查"
+	@echo "  memcheck_compaction    - 运行压缩机制内存检查"
 	@echo "  perf_test              - 运行性能测试"
 	@echo "  stress_test            - 运行压力测试"
 	@echo ""
@@ -189,72 +256,47 @@ help:
 	@echo "  help                   - 显示此帮助信息"
 	@echo ""
 	@echo "使用示例:"
-	@echo "  make                   # 构建所有测试"
-	@echo "  make test              # 运行所有测试"
-	@echo "  make test_sstable      # 只运行SSTable测试"
-	@echo "  make quick_test        # 快速SSTable测试"
-	@echo "  make memcheck_sstable  # SSTable内存检查"
-	@echo "  make clean             # 清理"
+	@echo "  make                       # 构建所有测试"
+	@echo "  make test                  # 运行所有测试"
+	@echo "  make test_compaction       # 只运行压缩机制测试"
+	@echo "  make quick_test            # 快速压缩机制测试"
+	@echo "  make integration_test      # 完整集成测试"
+	@echo "  make compaction_deep_test  # 压缩机制深度测试"
+	@echo "  make memcheck_compaction   # 压缩机制内存检查"
+	@echo "  make clean                 # 清理"
 
 # 检查依赖
 check_deps:
-	@echo "🔍 检查依赖文件..."
-	@echo "LSM源文件检查:"
-	@for file in $(LSM_SOURCES); do \
-		if [ -f "$$file" ]; then \
-			echo "  ✅ $$file"; \
+	@echo "🔍 检查编译依赖..."
+	@echo "=================="
+	@echo "检查编译器:"
+	@which $(CC) >/dev/null && echo "✅ $(CC) 可用" || echo "❌ $(CC) 不可用"
+	@echo "检查pthread库:"
+	@echo "#include <pthread.h>" | $(CC) -x c -c - -o /dev/null 2>/dev/null && echo "✅ pthread 可用" || echo "❌ pthread 不可用"
+	@echo "检查源文件:"
+	@for src in $(LSM_SOURCES); do \
+		if [ -f "$$src" ]; then \
+			echo "✅ $$src"; \
 		else \
-			echo "  ❌ $$file (缺失)"; \
-		fi \
+			echo "❌ $$src (缺失)"; \
+		fi; \
 	done
-	@echo ""
-	@echo "测试文件检查:"
-	@for file in $(TEST_SOURCES); do \
-		if [ -f "$$file" ]; then \
-			echo "  ✅ $$file"; \
+	@echo "检查测试文件:"
+	@for test in $(TEST_SOURCES); do \
+		if [ -f "$$test" ]; then \
+			echo "✅ $$test"; \
 		else \
-			echo "  ❌ $$file (缺失)"; \
-		fi \
+			echo "❌ $$test (缺失)"; \
+		fi; \
 	done
 
-# 显示编译信息
-info:
-	@echo "LSM-Tree测试编译信息"
-	@echo "==================="
+# 显示版本信息
+version:
+	@echo "LSM-Tree测试套件版本信息"
+	@echo "======================"
+	@echo "版本: 3.3 (压缩机制)"
+	@echo "日期: 2025-6-1"
+	@echo "功能: MemTable + SSTable + 压缩机制"
 	@echo "编译器: $(CC)"
 	@echo "编译选项: $(CFLAGS)"
-	@echo "包含路径: $(INCLUDES)"
-	@echo "链接库: $(LIBS)"
-	@echo ""
-	@echo "LSM源文件:"
-	@for file in $(LSM_SOURCES); do echo "  $$file"; done
-	@echo ""
-	@echo "测试文件:"
-	@for file in $(TEST_SOURCES); do echo "  $$file"; done
-
-# 编译检查
-compile_check: 
-	@echo "🔧 编译检查..."
-	@echo "=============="
-	@$(MAKE) clean
-	@$(MAKE) check_deps
-	@$(MAKE) all
-	@echo "✅ 编译检查通过"
-
-# 功能覆盖率测试
-coverage_test: $(SSTABLE_TEST)
-	@echo "📊 SSTable功能覆盖率测试..."
-	@echo "==========================="
-	@echo "测试CRC32校验和..."
-	@./$(SSTABLE_TEST) | grep -q "CRC32" && echo "✅ CRC32测试通过"
-	@echo "测试布隆过滤器..."
-	@./$(SSTABLE_TEST) | grep -q "布隆过滤器" && echo "✅ 布隆过滤器测试通过"
-	@echo "测试数据块..."
-	@./$(SSTABLE_TEST) | grep -q "数据块" && echo "✅ 数据块测试通过"
-	@echo "测试索引块..."
-	@./$(SSTABLE_TEST) | grep -q "索引块" && echo "✅ 索引块测试通过"
-	@echo "测试写入器..."
-	@./$(SSTABLE_TEST) | grep -q "写入器" && echo "✅ 写入器测试通过"
-	@echo "✅ 功能覆盖率测试完成"
-
-.SUFFIXES: .c .o 
+	@echo "链接库: $(LIBS)" 

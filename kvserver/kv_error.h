@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-6-2 23:45:17
 * @Description: ConcordKV storage engine - kv_error.h
  */
 #ifndef __KV_ERROR_H__
@@ -42,6 +42,14 @@
 #define KV_ERR_CLUSTER_SYNC      16  // 集群同步错误
 #define KV_ERR_NETWORK_PARTITION 17  // 网络分区
 #define KV_ERR_LEADER_CHANGED    18  // 领导者变更
+
+// LSM-Tree 相关错误码
+#define KV_ERR_INVALID_PARAM     19  // 无效参数
+#define KV_ERR_OUT_OF_MEMORY     20  // 内存不足
+#define KV_ERR_IO_ERROR          21  // I/O错误
+#define KV_ERR_NO_SPACE          22  // 空间不足
+#define KV_ERR_THREAD_ERROR      23  // 线程错误
+
 #define KV_ERR_UNKNOWN           100 // 未知错误
 
 // 错误信息结构

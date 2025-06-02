@@ -38,6 +38,12 @@ KV服务器的核心实现、API接口和测试指南。
 
 - **[LSM_SSTABLE_DEBUG_PROCESS.md](./debugging-guides/LSM_SSTABLE_DEBUG_PROCESS.md)** - LSM-Tree SSTable实现调试过程详细记录
 
+### 🔬 [technical-analysis/](./technical-analysis/) - 技术分析报告
+深入的技术问题分析、解决过程和重要技术洞察。
+
+- **[LSM_COMPACTION_CONCURRENT_ANALYSIS.md](./technical-analysis/LSM_COMPACTION_CONCURRENT_ANALYSIS.md)** ⭐ **重要** - LSM压缩并发安全性深度分析
+- **[LSM_COMPACTION_TEST_DESIGN.md](./technical-analysis/LSM_COMPACTION_TEST_DESIGN.md)** - 压缩机制测试设计文档
+
 ## 🚀 快速开始
 
 ### 对于新开发者
@@ -59,6 +65,11 @@ KV服务器的核心实现、API接口和测试指南。
 1. 阅读 [distributed-systems/](./distributed-systems/) 目录下的系统设计文档
 2. 重点关注分布式事务和Raft协议的实现细节
 3. 了解集群管理和容错机制
+
+### 对于技术研究者
+1. 查看 [technical-analysis/](./technical-analysis/) 目录下的深度技术分析
+2. 重点关注并发系统设计原理和性能优化洞察
+3. 学习复杂技术问题的分析方法和解决过程
 
 ## 📊 项目当前状态
 
@@ -94,6 +105,7 @@ KV服务器的核心实现、API接口和测试指南。
 - **技术实现**: 存储引擎或分布式系统实现 → `storage-engines/` 或 `distributed-systems/`
 - **API文档**: 接口说明和使用指南 → `kvserver/`
 - **调试记录**: 问题分析和解决过程 → `debugging-guides/`
+- **技术分析**: 深度技术问题分析和重要洞察 → `technical-analysis/`
 - **项目管理**: 计划、流程、规范 → `project-management/`
 
 ### 文档更新
@@ -104,10 +116,10 @@ KV服务器的核心实现、API接口和测试指南。
 
 ## 🔗 相关链接
 
-- **项目仓库**: [ConcordKV GitHub](https://github.com/username/ConcordKV)
-- **问题跟踪**: [GitHub Issues](https://github.com/username/ConcordKV/issues)
-- **讨论区**: [GitHub Discussions](https://github.com/username/ConcordKV/discussions)
-- **发布记录**: [Releases](https://github.com/username/ConcordKV/releases)
+- **项目仓库**: [ConcordKV GitHub](https://github.com/Lzww0608/ConcordKV)
+- **问题跟踪**: [GitHub Issues](https://github.com/Lzww0608/ConcordKV/issues)
+- **讨论区**: [GitHub Discussions](https://github.com/Lzww0608/ConcordKV/discussions)
+- **发布记录**: [Releases](https://github.com/Lzww0608/ConcordKV/releases)
 
 ## 🎯 文档质量目标
 
@@ -118,7 +130,7 @@ KV服务器的核心实现、API接口和测试指南。
 
 ---
 
-**最后更新**: 2025-6-1  
+**最后更新**: 2025-6-3
 **项目版本**: v0.3.0  
 **文档状态**: 🟢 活跃维护  
 
