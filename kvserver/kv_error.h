@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-6-2 23:45:17
+* @LastEditTime: 2025-6-3 22:23:07
 * @Description: ConcordKV storage engine - kv_error.h
  */
 #ifndef __KV_ERROR_H__
@@ -49,6 +49,7 @@
 #define KV_ERR_IO_ERROR          21  // I/O错误
 #define KV_ERR_NO_SPACE          22  // 空间不足
 #define KV_ERR_THREAD_ERROR      23  // 线程错误
+#define KV_ERR_INVALID_STATE     24  // 无效状态
 
 #define KV_ERR_UNKNOWN           100 // 未知错误
 

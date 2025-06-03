@@ -272,3 +272,9 @@ cd tests/raftserver
 - **标准库**: context, sync, net/http, encoding/json
 - **第三方库**: 无（纯标准库实现）
 - **系统要求**: Linux/macOS/Windows, Go 1.19+ 
+
+# 运行测试
+cd tests/raftserver
+
+# 启动集群节点
+./start_cluster.sh
