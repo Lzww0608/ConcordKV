@@ -14,7 +14,10 @@ KV服务器的核心实现、API接口和测试指南。
 ### 🗄️ [storage-engines/](./storage-engines/) - 存储引擎实现
 各种存储引擎的设计文档、优化记录和性能分析。
 
+- **[BTREE_OPTIMIZATION_CONCURRENCY_ISSUES.md](./storage-engines/BTREE_OPTIMIZATION_CONCURRENCY_ISSUES.md)** ⭐ **新增** - B+Tree优化中的并发控制问题分析与解决方案
 - **[HASH_OPTIMIZATION_COMPLETE.md](./storage-engines/HASH_OPTIMIZATION_COMPLETE.md)** - Hash存储引擎优化完整记录
+- **[LSM_TREE_DEADLOCK_ANALYSIS.md](./storage-engines/LSM_TREE_DEADLOCK_ANALYSIS.md)** - LSM-Tree死锁分析文档
+- **[LSM_COMPACTION_TEST_DESIGN.md](./storage-engines/LSM_COMPACTION_TEST_DESIGN.md)** - LSM压缩机制测试设计
 - **LSM_TREE_DESIGN.md** - LSM-Tree存储引擎设计文档 *(待创建)*
 - **SSTABLE_FORMAT_SPEC.md** - SSTable文件格式规范 *(待创建)*
 - **BTREE_IMPLEMENTATION.md** - B+Tree实现文档 *(待创建)*
@@ -70,6 +73,23 @@ KV服务器的核心实现、API接口和测试指南。
 1. 查看 [technical-analysis/](./technical-analysis/) 目录下的深度技术分析
 2. 重点关注并发系统设计原理和性能优化洞察
 3. 学习复杂技术问题的分析方法和解决过程
+
+## 🛠️ 常见技术问题解决指南
+
+### 并发控制问题
+- **B+Tree缓存死锁**: 参考 [BTREE_OPTIMIZATION_CONCURRENCY_ISSUES.md](./storage-engines/BTREE_OPTIMIZATION_CONCURRENCY_ISSUES.md)
+- **LSM-Tree并发安全**: 参考 [LSM_COMPACTION_CONCURRENT_ANALYSIS.md](./technical-analysis/LSM_COMPACTION_CONCURRENT_ANALYSIS.md)
+- **读写锁升级问题**: 查看B+Tree优化文档中的锁策略部分
+
+### 性能优化问题
+- **存储引擎选择**: 查看文档中的性能对比表格
+- **缓存命中率低**: 参考B+Tree缓存优化经验
+- **并发性能瓶颈**: 学习锁粒度优化和无锁设计
+
+### 调试和测试
+- **死锁检测**: 使用超时机制和信号处理
+- **内存泄漏**: Valgrind工具使用和内存管理规范
+- **并发测试**: 多线程测试设计和竞争条件识别
 
 ## 📊 项目当前状态
 
@@ -130,7 +150,7 @@ KV服务器的核心实现、API接口和测试指南。
 
 ---
 
-**最后更新**: 2025-6-3
+**最后更新**: 2025-6-4
 **项目版本**: v0.3.0  
 **文档状态**: 🟢 活跃维护  
 

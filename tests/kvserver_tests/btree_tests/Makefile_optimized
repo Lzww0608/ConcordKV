@@ -1,0 +1,123 @@
+# ConcordKV B+Tree优化版 Makefile
+# 作者: Lzww0608
+# 日期: 2025-6-4
+
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99 -g -O2 -fPIC
+LDFLAGS = -lpthread -lm
+
+# 目录定义
+KVSERVER_DIR = ../../../kvserver
+TEST_DIR = .
+BUILD_DIR = ./build_optimized
+
+# 源文件
+BTREE_SOURCES = $(KVSERVER_DIR)/kvstore_btree.c \
+                $(KVSERVER_DIR)/kvstore_btree_optimized.c \
+                $(KVSERVER_DIR)/btree_adapter.c \
+                $(KVSERVER_DIR)/kv_error.c \
+                $(KVSERVER_DIR)/kv_memory.c
+
+TEST_SOURCES = btree_optimized_test.c
+
+# 目标文件
+BTREE_OBJECTS = $(BTREE_SOURCES:$(KVSERVER_DIR)/%.c=$(BUILD_DIR)/%.o)
+TEST_OBJECTS = $(TEST_SOURCES:%.c=$(BUILD_DIR)/%.o)
+
+# 可执行文件
+TEST_EXECUTABLE = $(BUILD_DIR)/btree_optimized_test
+
+# 主目标
+all: $(TEST_EXECUTABLE)
+
+# 创建构建目录
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+# 编译B+Tree源文件
+$(BUILD_DIR)/%.o: $(KVSERVER_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(KVSERVER_DIR) -c $< -o $@
+
+# 编译测试文件
+$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -I$(KVSERVER_DIR) -c $< -o $@
+
+# 链接可执行文件
+$(TEST_EXECUTABLE): $(BTREE_OBJECTS) $(TEST_OBJECTS)
+	$(CC) $(BTREE_OBJECTS) $(TEST_OBJECTS) -o $@ $(LDFLAGS)
+
+# 运行测试
+test: $(TEST_EXECUTABLE)
+	@echo "🚀 运行B+Tree优化版测试..."
+	@echo "==============================="
+	@timeout 60 $(TEST_EXECUTABLE) || { \
+		echo "❌ 测试超时或失败"; \
+		exit 1; \
+	}
+
+# 性能测试
+perf_test: $(TEST_EXECUTABLE)
+	@echo "📊 运行B+Tree优化版性能测试..."
+	@echo "=================================="
+	@time timeout 120 $(TEST_EXECUTABLE)
+
+# 内存检查
+memcheck: $(TEST_EXECUTABLE)
+	@echo "🔍 运行内存泄漏检查..."
+	@echo "======================="
+	@valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes \
+		--error-exitcode=1 $(TEST_EXECUTABLE)
+
+# 清理
+clean:
+	rm -rf $(BUILD_DIR)
+
+# 深度清理
+distclean: clean
+	rm -f *.log *.out core.*
+
+# 帮助信息
+help:
+	@echo "ConcordKV B+Tree优化版 Makefile"
+	@echo "================================"
+	@echo "可用目标:"
+	@echo "  all        - 编译所有组件"
+	@echo "  test       - 运行标准测试"
+	@echo "  perf_test  - 运行性能测试"
+	@echo "  memcheck   - 运行内存检查"
+	@echo "  clean      - 清理构建文件"
+	@echo "  distclean  - 深度清理"
+	@echo "  help       - 显示此帮助信息"
+
+# 调试编译
+debug: CFLAGS += -DDEBUG -O0
+debug: $(TEST_EXECUTABLE)
+
+# 发布编译
+release: CFLAGS += -DNDEBUG -O3
+release: clean $(TEST_EXECUTABLE)
+
+# 统计代码行数
+stats:
+	@echo "📈 代码统计信息"
+	@echo "=============="
+	@echo "优化版B+Tree头文件:"
+	@wc -l $(KVSERVER_DIR)/kvstore_btree_optimized.h
+	@echo "优化版B+Tree实现文件:"
+	@wc -l $(KVSERVER_DIR)/kvstore_btree_optimized.c
+	@echo "测试文件:"
+	@wc -l btree_optimized_test.c
+	@echo "总计:"
+	@wc -l $(KVSERVER_DIR)/kvstore_btree_optimized.h \
+	       $(KVSERVER_DIR)/kvstore_btree_optimized.c \
+	       btree_optimized_test.c
+
+# 依赖关系
+$(BUILD_DIR)/kvstore_btree.o: $(KVSERVER_DIR)/kvstore_btree.c $(KVSERVER_DIR)/kvstore_btree.h
+$(BUILD_DIR)/kvstore_btree_optimized.o: $(KVSERVER_DIR)/kvstore_btree_optimized.c \
+	$(KVSERVER_DIR)/kvstore_btree_optimized.h $(KVSERVER_DIR)/kvstore_btree.h
+$(BUILD_DIR)/kv_error.o: $(KVSERVER_DIR)/kv_error.c $(KVSERVER_DIR)/kv_error.h
+$(BUILD_DIR)/kv_memory.o: $(KVSERVER_DIR)/kv_memory.c $(KVSERVER_DIR)/kv_memory.h
+$(BUILD_DIR)/btree_optimized_test.o: btree_optimized_test.c $(KVSERVER_DIR)/kvstore_btree_optimized.h
+
+.PHONY: all test perf_test memcheck clean distclean help debug release stats 
