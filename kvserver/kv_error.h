@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-6-3 22:23:07
+* @LastEditTime: 2025-6-5 21:13:29
 * @Description: ConcordKV storage engine - kv_error.h
  */
 #ifndef __KV_ERROR_H__
@@ -50,6 +50,8 @@
 #define KV_ERR_NO_SPACE          22  // 空间不足
 #define KV_ERR_THREAD_ERROR      23  // 线程错误
 #define KV_ERR_INVALID_STATE     24  // 无效状态
+#define KV_ERR_NOT_IMPLEMENTED   25  // 功能未实现
+#define KV_ERR_COMPACTION_FAILED 26  // 压缩失败
 
 #define KV_ERR_UNKNOWN           100 // 未知错误
 

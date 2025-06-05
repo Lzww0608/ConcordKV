@@ -25,10 +25,13 @@ LSM_SOURCES = $(KVSERVER_SRC)/lsm_memtable.c \
 LSM_OBJECTS = lsm_memtable.o lsm_memtable_manager.o lsm_sstable.o lsm_compaction.o lsm_tree.o kv_memory.o kv_error.o
 
 # 测试程序
-TESTS = lsm_memtable_test lsm_sstable_test lsm_memtable_manager_test lsm_compaction_test lsm_tree_test
+TESTS = lsm_memtable_test lsm_sstable_test lsm_memtable_manager_test lsm_compaction_test lsm_tree_test lsm_multithread_compaction_test lsm_multithread_performance_test
 
 # 核心测试（不包括集成测试）
 CORE_TESTS = lsm_memtable_test lsm_sstable_test lsm_memtable_manager_test lsm_compaction_test
+
+# 多线程测试
+MULTITHREAD_TESTS = lsm_multithread_compaction_test lsm_multithread_performance_test
 
 # 集成测试
 INTEGRATION_TESTS = lsm_tree_test
@@ -78,6 +81,18 @@ lsm_tree_test: lsm_tree_test.c $(LSM_OBJECTS)
 	$(CC) $(CFLAGS) $(INCLUDES) lsm_tree_test.c $(LSM_OBJECTS) -o $@ $(LDFLAGS)
 	@echo "✅ 构建完成: $@"
 
+# 多线程压缩测试
+lsm_multithread_compaction_test: lsm_multithread_compaction_test.c $(LSM_OBJECTS)
+	@echo "🔗 链接 $@..."
+	$(CC) $(CFLAGS) $(INCLUDES) lsm_multithread_compaction_test.c $(LSM_OBJECTS) -o $@ $(LDFLAGS)
+	@echo "✅ 构建完成: $@"
+
+# 多线程压缩性能测试
+lsm_multithread_performance_test: lsm_multithread_performance_test.c $(LSM_OBJECTS)
+	@echo "🔗 链接 $@..."
+	$(CC) $(CFLAGS) $(INCLUDES) lsm_multithread_performance_test.c $(LSM_OBJECTS) -o $@ $(LDFLAGS)
+	@echo "✅ 构建完成: $@"
+
 # === 测试运行目标 ===
 
 # 运行核心组件测试
@@ -92,6 +107,19 @@ test-core: $(CORE_TESTS)
 	done
 	@echo ""
 	@echo "🎉 核心组件测试全部通过！"
+
+# 运行多线程测试
+test-multithread: $(MULTITHREAD_TESTS)
+	@echo "🚀 运行LSM-Tree多线程压缩测试..."
+	@echo "=================================="
+	@for test in $(MULTITHREAD_TESTS); do \
+		echo ""; \
+		echo "🧪 运行 $$test..."; \
+		echo "----------------------------------------"; \
+		./$$test || exit 1; \
+	done
+	@echo ""
+	@echo "🎉 多线程测试全部通过！"
 
 # 运行集成测试
 test-integration: $(INTEGRATION_TESTS)
