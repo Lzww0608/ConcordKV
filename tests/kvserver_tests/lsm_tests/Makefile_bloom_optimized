@@ -1,0 +1,254 @@
+# ConcordKV LSM-Tree 优化布隆过滤器测试 Makefile
+# Author: Lzww0608
+# Date: 2025-6-5 21:30:00
+
+# === 编译器配置 ===
+CC = gcc
+CFLAGS = -std=c99 -Wall -Wextra -g -O2 -fPIC -pthread
+CFLAGS_DEBUG = -std=c99 -Wall -Wextra -g -O0 -fPIC -pthread -DDEBUG
+CFLAGS_RELEASE = -std=c99 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -march=native
+
+# === 路径配置 ===
+KVSERVER_DIR = ../../../kvserver
+UTILS_DIR = ../../../utils
+COMMON_DIR = ../../../common
+
+# === 包含路径 ===
+INCLUDES = -I$(KVSERVER_DIR) -I$(UTILS_DIR) -I$(COMMON_DIR) -I../../../
+
+# === 库配置 ===
+LIBS = -lm -lpthread -lrt
+
+# === 源文件 ===
+TEST_SOURCES = lsm_bloom_filter_optimized_test.c
+BLOOM_SOURCES = $(KVSERVER_DIR)/lsm_bloom_filter_optimized.c
+MEMORY_SOURCES = $(KVSERVER_DIR)/kv_memory.c
+ERROR_SOURCES = $(KVSERVER_DIR)/kv_error.c
+
+# === 对象文件 ===
+TEST_OBJECTS = $(TEST_SOURCES:.c=.o)
+BLOOM_OBJECTS = $(BLOOM_SOURCES:.c=.o)
+MEMORY_OBJECTS = $(MEMORY_SOURCES:.c=.o)
+ERROR_OBJECTS = $(ERROR_SOURCES:.c=.o)
+
+ALL_OBJECTS = $(TEST_OBJECTS) $(BLOOM_OBJECTS) $(MEMORY_OBJECTS) $(ERROR_OBJECTS)
+
+# === 可执行文件 ===
+TEST_EXECUTABLE = lsm_bloom_filter_optimized_test
+TEST_EXECUTABLE_DEBUG = $(TEST_EXECUTABLE)_debug
+TEST_EXECUTABLE_RELEASE = $(TEST_EXECUTABLE)_release
+
+# === 默认目标 ===
+.PHONY: all clean test test-debug test-release benchmark valgrind help
+
+all: $(TEST_EXECUTABLE)
+
+# === 编译目标 ===
+$(TEST_EXECUTABLE): $(ALL_OBJECTS)
+	@echo "🔗 链接 $@..."
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+	@echo "✅ 编译完成: $@"
+
+# === 调试版本 ===
+debug: $(TEST_EXECUTABLE_DEBUG)
+
+$(TEST_EXECUTABLE_DEBUG): CFLAGS := $(CFLAGS_DEBUG)
+$(TEST_EXECUTABLE_DEBUG): $(ALL_OBJECTS)
+	@echo "🔗 链接调试版本 $@..."
+	$(CC) $(CFLAGS_DEBUG) -o $@ $^ $(LIBS)
+	@echo "✅ 调试版本编译完成: $@"
+
+# === 发布版本 ===
+release: $(TEST_EXECUTABLE_RELEASE)
+
+$(TEST_EXECUTABLE_RELEASE): CFLAGS := $(CFLAGS_RELEASE)
+$(TEST_EXECUTABLE_RELEASE): $(ALL_OBJECTS)
+	@echo "🔗 链接发布版本 $@..."
+	$(CC) $(CFLAGS_RELEASE) -o $@ $^ $(LIBS)
+	@echo "✅ 发布版本编译完成: $@"
+
+# === 对象文件编译规则 ===
+%.o: %.c
+	@echo "📦 编译 $<..."
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# 特殊处理kvserver目录下的源文件
+$(KVSERVER_DIR)/%.o: $(KVSERVER_DIR)/%.c
+	@echo "📦 编译 $<..."
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+# === 测试目标 ===
+test: $(TEST_EXECUTABLE)
+	@echo "🧪 运行布隆过滤器优化测试..."
+	@echo "========================================"
+	./$(TEST_EXECUTABLE)
+	@echo "========================================"
+	@echo "✅ 测试完成"
+
+test-debug: $(TEST_EXECUTABLE_DEBUG)
+	@echo "🐛 运行布隆过滤器优化调试测试..."
+	@echo "========================================"
+	./$(TEST_EXECUTABLE_DEBUG)
+	@echo "========================================"
+	@echo "✅ 调试测试完成"
+
+test-release: $(TEST_EXECUTABLE_RELEASE)
+	@echo "🚀 运行布隆过滤器优化发布测试..."
+	@echo "========================================"
+	./$(TEST_EXECUTABLE_RELEASE)
+	@echo "========================================"
+	@echo "✅ 发布测试完成"
+
+# === 性能基准测试 ===
+benchmark: $(TEST_EXECUTABLE_RELEASE)
+	@echo "⚡ 运行性能基准测试..."
+	@echo "========================================"
+	time ./$(TEST_EXECUTABLE_RELEASE)
+	@echo "========================================"
+	@echo "✅ 基准测试完成"
+
+# === 内存检查 ===
+valgrind: $(TEST_EXECUTABLE_DEBUG)
+	@echo "🔍 运行内存检查..."
+	@echo "========================================"
+	valgrind --tool=memcheck \
+		--leak-check=full \
+		--show-leak-kinds=all \
+		--track-origins=yes \
+		--verbose \
+		--log-file=valgrind_bloom_optimized.log \
+		./$(TEST_EXECUTABLE_DEBUG)
+	@echo "========================================"
+	@echo "✅ 内存检查完成，结果保存到 valgrind_bloom_optimized.log"
+
+# === 代码覆盖率 ===
+coverage: CFLAGS += --coverage
+coverage: LIBS += -lgcov
+coverage: $(TEST_EXECUTABLE)
+	@echo "📊 运行代码覆盖率测试..."
+	./$(TEST_EXECUTABLE)
+	gcov $(BLOOM_SOURCES)
+	@echo "✅ 代码覆盖率测试完成"
+
+# === 静态分析 ===
+static-analysis:
+	@echo "🔍 运行静态代码分析..."
+	@which cppcheck > /dev/null 2>&1 || (echo "❌ 请安装 cppcheck"; exit 1)
+	cppcheck --enable=all --std=c99 --platform=unix64 \
+		--suppress=missingIncludeSystem \
+		--suppress=unusedFunction \
+		--suppress=unmatchedSuppression \
+		$(INCLUDES) \
+		$(TEST_SOURCES) $(BLOOM_SOURCES)
+	@echo "✅ 静态分析完成"
+
+# === 性能分析 ===
+profile: CFLAGS += -pg
+profile: $(TEST_EXECUTABLE)
+	@echo "📈 运行性能分析..."
+	./$(TEST_EXECUTABLE)
+	gprof $(TEST_EXECUTABLE) gmon.out > profile_bloom_optimized.txt
+	@echo "✅ 性能分析完成，结果保存到 profile_bloom_optimized.txt"
+
+# === 并行测试 ===
+test-parallel: $(TEST_EXECUTABLE)
+	@echo "🔄 运行并行测试..."
+	@for i in 1 2 3 4; do \
+		echo "运行测试实例 $$i..."; \
+		./$(TEST_EXECUTABLE) & \
+	done; \
+	wait
+	@echo "✅ 并行测试完成"
+
+# === 压力测试 ===
+stress-test: $(TEST_EXECUTABLE_RELEASE)
+	@echo "💪 运行压力测试..."
+	@for i in 1 2 3 4 5; do \
+		echo "压力测试轮次 $$i/5..."; \
+		timeout 60 ./$(TEST_EXECUTABLE_RELEASE) || true; \
+	done
+	@echo "✅ 压力测试完成"
+
+# === 清理目标 ===
+clean:
+	@echo "🧹 清理编译文件..."
+	rm -f $(ALL_OBJECTS)
+	rm -f $(TEST_EXECUTABLE) $(TEST_EXECUTABLE_DEBUG) $(TEST_EXECUTABLE_RELEASE)
+	rm -f *.gcov *.gcda *.gcno gmon.out
+	rm -f valgrind_bloom_optimized.log profile_bloom_optimized.txt
+	rm -f core core.*
+	@echo "✅ 清理完成"
+
+# === 安装依赖 ===
+install-deps:
+	@echo "📦 安装测试依赖..."
+	@which valgrind > /dev/null 2>&1 || sudo apt-get install -y valgrind
+	@which cppcheck > /dev/null 2>&1 || sudo apt-get install -y cppcheck
+	@which gcov > /dev/null 2>&1 || sudo apt-get install -y gcc
+	@echo "✅ 依赖安装完成"
+
+# === Docker测试 ===
+docker-test:
+	@echo "🐳 在Docker中运行测试..."
+	docker run --rm -v $(PWD)/../../..:/workspace -w /workspace/tests/kvserver_tests/lsm_tests \
+		gcc:latest make -f Makefile_bloom_optimized test
+	@echo "✅ Docker测试完成"
+
+# === 检查构建环境 ===
+check-env:
+	@echo "🔍 检查构建环境..."
+	@echo "编译器: $(shell $(CC) --version | head -n1)"
+	@echo "Make版本: $(shell make --version | head -n1)"
+	@echo "系统: $(shell uname -a)"
+	@echo "CPU信息: $(shell cat /proc/cpuinfo | grep 'model name' | head -n1 | cut -d: -f2)"
+	@echo "内存信息: $(shell free -h | grep '^Mem' | awk '{print $$2}')"
+	@echo "磁盘空间: $(shell df -h . | tail -n1 | awk '{print $$4}')"
+	@echo "✅ 环境检查完成"
+
+# === 自动化测试 ===
+auto-test: clean all test coverage valgrind
+	@echo "🤖 自动化测试完成"
+
+# === 快速测试 ===
+quick-test: $(TEST_EXECUTABLE)
+	@echo "⚡ 快速测试..."
+	timeout 30 ./$(TEST_EXECUTABLE)
+
+# === 帮助信息 ===
+help:
+	@echo "🔧 ConcordKV LSM-Tree 优化布隆过滤器测试 Makefile"
+	@echo "=================================================="
+	@echo ""
+	@echo "编译目标:"
+	@echo "  all              - 编译测试程序(默认)"
+	@echo "  debug            - 编译调试版本"
+	@echo "  release          - 编译优化版本"
+	@echo ""
+	@echo "测试目标:"
+	@echo "  test             - 运行基础测试"
+	@echo "  test-debug       - 运行调试测试"
+	@echo "  test-release     - 运行发布测试"
+	@echo "  quick-test       - 快速测试(30秒超时)"
+	@echo "  test-parallel    - 并行测试"
+	@echo "  stress-test      - 压力测试"
+	@echo ""
+	@echo "分析目标:"
+	@echo "  benchmark        - 性能基准测试"
+	@echo "  valgrind         - 内存检查"
+	@echo "  coverage         - 代码覆盖率"
+	@echo "  static-analysis  - 静态代码分析"
+	@echo "  profile          - 性能分析"
+	@echo ""
+	@echo "维护目标:"
+	@echo "  clean            - 清理编译文件"
+	@echo "  install-deps     - 安装依赖"
+	@echo "  check-env        - 检查构建环境"
+	@echo "  auto-test        - 自动化测试"
+	@echo "  docker-test      - Docker测试"
+	@echo "  help             - 显示帮助信息"
+
+# === 依赖关系 ===
+$(TEST_OBJECTS): $(TEST_SOURCES)
+$(BLOOM_OBJECTS): $(BLOOM_SOURCES) $(KVSERVER_DIR)/lsm_bloom_filter_optimized.h
+$(MEMORY_OBJECTS): $(MEMORY_SOURCES) $(KVSERVER_DIR)/kv_memory.h
+$(ERROR_OBJECTS): $(ERROR_SOURCES) $(KVSERVER_DIR)/kv_error.h 
