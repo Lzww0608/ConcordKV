@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-6-5 21:13:29
+* @LastEditTime: 2025-6-7 17:37:00
 * @Description: ConcordKV storage engine - kv_error.h
  */
 #ifndef __KV_ERROR_H__
@@ -52,6 +52,10 @@
 #define KV_ERR_INVALID_STATE     24  // 无效状态
 #define KV_ERR_NOT_IMPLEMENTED   25  // 功能未实现
 #define KV_ERR_COMPACTION_FAILED 26  // 压缩失败
+
+// 批量操作相关错误码
+#define KV_ERR_BATCH_FULL        27  // 批次已满
+#define KV_ERR_BATCH_TOO_LARGE   28  // 批次过大
 
 #define KV_ERR_UNKNOWN           100 // 未知错误
 

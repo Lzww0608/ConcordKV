@@ -1,0 +1,47 @@
+[
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/cc  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -std=gnu99 -o CMakeFiles/lsm_tree_static.dir/home/lab2439/lzww/ConcordKV/kvserver/lsm_tree.c.o -c /home/lab2439/lzww/ConcordKV/kvserver/lsm_tree.c",
+  "file": "/home/lab2439/lzww/ConcordKV/kvserver/lsm_tree.c"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/cc  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -std=gnu99 -o CMakeFiles/lsm_tree_static.dir/home/lab2439/lzww/ConcordKV/kvserver/lsm_memtable.c.o -c /home/lab2439/lzww/ConcordKV/kvserver/lsm_memtable.c",
+  "file": "/home/lab2439/lzww/ConcordKV/kvserver/lsm_memtable.c"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/cc  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -std=gnu99 -o CMakeFiles/lsm_tree_static.dir/home/lab2439/lzww/ConcordKV/kvserver/lsm_memtable_manager.c.o -c /home/lab2439/lzww/ConcordKV/kvserver/lsm_memtable_manager.c",
+  "file": "/home/lab2439/lzww/ConcordKV/kvserver/lsm_memtable_manager.c"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/cc  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -std=gnu99 -o CMakeFiles/lsm_tree_static.dir/home/lab2439/lzww/ConcordKV/kvserver/lsm_sstable.c.o -c /home/lab2439/lzww/ConcordKV/kvserver/lsm_sstable.c",
+  "file": "/home/lab2439/lzww/ConcordKV/kvserver/lsm_sstable.c"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/cc  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -std=gnu99 -o CMakeFiles/lsm_tree_static.dir/home/lab2439/lzww/ConcordKV/kvserver/lsm_compaction.c.o -c /home/lab2439/lzww/ConcordKV/kvserver/lsm_compaction.c",
+  "file": "/home/lab2439/lzww/ConcordKV/kvserver/lsm_compaction.c"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/cc  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -std=gnu99 -o CMakeFiles/lsm_tree_static.dir/home/lab2439/lzww/ConcordKV/kvserver/kv_memory.c.o -c /home/lab2439/lzww/ConcordKV/kvserver/kv_memory.c",
+  "file": "/home/lab2439/lzww/ConcordKV/kvserver/kv_memory.c"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/cc  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -fPIC -pthread -std=gnu99 -o CMakeFiles/lsm_tree_static.dir/home/lab2439/lzww/ConcordKV/kvserver/kv_error.c.o -c /home/lab2439/lzww/ConcordKV/kvserver/kv_error.c",
+  "file": "/home/lab2439/lzww/ConcordKV/kvserver/kv_error.c"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/c++  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -DGTEST_HAS_PTHREAD=1 -pthread -std=gnu++11 -o CMakeFiles/lsm_batch_write_gtest.dir/lsm_batch_write_gtest.cpp.o -c /home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/lsm_batch_write_gtest.cpp",
+  "file": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/lsm_batch_write_gtest.cpp"
+},
+{
+  "directory": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/build_gtest",
+  "command": "/usr/bin/c++  -I/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/../../../kvserver -I/usr/include/gtest  -g -O2 -Wall -Wextra -O3 -DNDEBUG -DGTEST_HAS_PTHREAD=1 -pthread -std=gnu++11 -o CMakeFiles/lsm_batch_write_gtest.dir/lsm_batch_write_gtest_main.cpp.o -c /home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/lsm_batch_write_gtest_main.cpp",
+  "file": "/home/lab2439/lzww/ConcordKV/tests/kvserver_tests/lsm_tests/lsm_batch_write_gtest_main.cpp"
+}
+]

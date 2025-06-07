@@ -25,7 +25,7 @@ LSM_SOURCES = $(KVSERVER_SRC)/lsm_memtable.c \
 LSM_OBJECTS = lsm_memtable.o lsm_memtable_manager.o lsm_sstable.o lsm_compaction.o lsm_tree.o kv_memory.o kv_error.o
 
 # 测试程序
-TESTS = lsm_memtable_test lsm_sstable_test lsm_memtable_manager_test lsm_compaction_test lsm_tree_test lsm_multithread_compaction_test lsm_multithread_performance_test
+TESTS = lsm_memtable_test lsm_sstable_test lsm_memtable_manager_test lsm_compaction_test lsm_tree_test lsm_multithread_compaction_test lsm_multithread_performance_test lsm_batch_write_test
 
 # 核心测试（不包括集成测试）
 CORE_TESTS = lsm_memtable_test lsm_sstable_test lsm_memtable_manager_test lsm_compaction_test
@@ -35,6 +35,9 @@ MULTITHREAD_TESTS = lsm_multithread_compaction_test lsm_multithread_performance_
 
 # 集成测试
 INTEGRATION_TESTS = lsm_tree_test
+
+# 批量写入测试
+BATCH_TESTS = lsm_batch_write_test
 
 # 默认目标
 .PHONY: all clean test test-core test-integration test-all memcheck help
@@ -93,6 +96,24 @@ lsm_multithread_performance_test: lsm_multithread_performance_test.c $(LSM_OBJEC
 	$(CC) $(CFLAGS) $(INCLUDES) lsm_multithread_performance_test.c $(LSM_OBJECTS) -o $@ $(LDFLAGS)
 	@echo "✅ 构建完成: $@"
 
+# 批量写入测试
+lsm_batch_write_test: lsm_batch_write_test.c $(LSM_OBJECTS)
+	@echo "🔗 链接 $@..."
+	$(CC) $(CFLAGS) $(INCLUDES) lsm_batch_write_test.c $(LSM_OBJECTS) -o $@ $(LDFLAGS)
+	@echo "✅ 构建完成: $@"
+
+# 调试批量写入测试
+debug_batch_test: debug_batch_test.c $(LSM_OBJECTS)
+	@echo "🔗 链接 $@..."
+	$(CC) $(CFLAGS) $(INCLUDES) debug_batch_test.c $(LSM_OBJECTS) -o $@ $(LDFLAGS)
+	@echo "✅ 构建完成: $@"
+
+# 调试去重功能测试
+debug_dedup_test: debug_dedup_test.c $(LSM_OBJECTS)
+	@echo "🔗 链接 $@..."
+	$(CC) $(CFLAGS) $(INCLUDES) debug_dedup_test.c $(LSM_OBJECTS) -o $@ $(LDFLAGS)
+	@echo "✅ 构建完成: $@"
+
 # === 测试运行目标 ===
 
 # 运行核心组件测试
@@ -133,6 +154,19 @@ test-integration: $(INTEGRATION_TESTS)
 	done
 	@echo ""
 	@echo "🎉 集成测试全部通过！"
+
+# 运行批量写入测试
+test-batch: $(BATCH_TESTS)
+	@echo "🚀 运行LSM-Tree批量写入功能测试..."
+	@echo "=================================="
+	@for test in $(BATCH_TESTS); do \
+		echo ""; \
+		echo "🧪 运行 $$test..."; \
+		echo "----------------------------------------"; \
+		./$$test || exit 1; \
+	done
+	@echo ""
+	@echo "🎉 批量写入测试全部通过！"
 
 # 运行所有测试
 test-all: $(TESTS)
