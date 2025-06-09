@@ -22,11 +22,14 @@ BTREE_OBJS = kvstore_btree.o btree_adapter.o
 # LSM-Tree相关文件 🔥
 LSM_OBJS = lsm_memtable.o lsm_memtable_manager.o
 
+# Cache缓存层相关文件 ⚡
+CACHE_OBJS = kv_cache.o
+
 # 所有目标文件
-ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS)
+ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS)
 
 # 测试程序使用的所有对象文件
-ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS)
+ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS)
 
 # 目标可执行文件
 TARGET = kvserver
@@ -38,6 +41,9 @@ SIMPLE_DEBUG_TARGET = simple_debug
 PRODUCTION_TEST_TARGET = btree_production_test
 LSM_MANAGER_TEST_TARGET = lsm_memtable_manager_test
 LSM_MEMTABLE_TEST_TARGET = lsm_memtable_test
+CACHE_TEST_TARGET = kv_cache_test
+CACHE_COMPREHENSIVE_TEST_TARGET = kv_cache_comprehensive_test
+CACHE_EXAMPLE_TARGET = cache_example
 
 # 默认目标
 all: $(TARGET) $(SHARED_LIB)
@@ -76,6 +82,18 @@ $(LSM_MANAGER_TEST_TARGET): ../tests/kvserver_tests/lsm_tests/lsm_memtable_manag
 
 # 编译LSM-Tree内存表测试程序
 $(LSM_MEMTABLE_TEST_TARGET): ../tests/kvserver_tests/lsm_tests/lsm_memtable_test.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# 编译缓存层测试程序
+$(CACHE_TEST_TARGET): ../tests/kvserver_tests/cache_tests/kv_cache_test.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# 编译缓存层综合测试程序
+$(CACHE_COMPREHENSIVE_TEST_TARGET): ../tests/kvserver_tests/cache_tests/kv_cache_comprehensive_test.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# 编译缓存层示例程序
+$(CACHE_EXAMPLE_TARGET): ../examples/cache_example.o $(ALL_TEST_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # 规则：从.c文件生成.o文件
@@ -118,6 +136,14 @@ $(LSM_MEMTABLE_TEST_TARGET): ../tests/kvserver_tests/lsm_tests/lsm_memtable_test
 ../tests/kvserver_tests/lsm_tests/%.o: ../tests/kvserver_tests/lsm_tests/%.c
 	$(CC) $(CFLAGS) -I. -c $< -o $@
 
+# 编译tests/kvserver_tests/cache_tests目录下的.c文件 ⚡
+../tests/kvserver_tests/cache_tests/%.o: ../tests/kvserver_tests/cache_tests/%.c
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
+# 编译examples目录下的.c文件
+../examples/%.o: ../examples/%.c
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
 # 运行测试
 test: $(TEST_TARGET)
 	@echo "🚀 运行存储引擎接口测试..."
@@ -153,12 +179,31 @@ run_lsm_memtable_test: $(LSM_MEMTABLE_TEST_TARGET)
 	@echo "🎯 运行LSM-Tree内存表测试..."
 	./$(LSM_MEMTABLE_TEST_TARGET)
 
+# 运行缓存层测试
+run_cache_test: $(CACHE_TEST_TARGET)
+	@echo "⚡ 运行缓存层基础测试..."
+	./$(CACHE_TEST_TARGET)
+
+# 运行缓存层综合测试
+run_cache_comprehensive_test: $(CACHE_COMPREHENSIVE_TEST_TARGET)
+	@echo "⚡ 运行缓存层综合测试..."
+	./$(CACHE_COMPREHENSIVE_TEST_TARGET)
+
 # 运行LSM-Tree测试
 test_lsm: run_lsm_manager_test run_lsm_memtable_test
 	@echo "🔥 LSM-Tree测试完成"
 
+# 运行缓存层测试
+test_cache: run_cache_test run_cache_comprehensive_test
+	@echo "⚡ 缓存层测试完成"
+
+# 运行缓存层示例
+run_cache_example: $(CACHE_EXAMPLE_TARGET)
+	@echo "🎯 运行缓存层功能演示..."
+	./$(CACHE_EXAMPLE_TARGET)
+
 # 运行所有测试
-test_all: test run_btree_test run_lsm_manager_test run_lsm_memtable_test
+test_all: test run_btree_test run_lsm_manager_test run_lsm_memtable_test test_cache
 	@echo "✅ 所有测试完成"
 
 # 运行Hash存储引擎测试

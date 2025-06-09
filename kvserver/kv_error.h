@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-6-7 17:37:00
+* @LastEditTime: 2025-6-9 19:47:08
 * @Description: ConcordKV storage engine - kv_error.h
  */
 #ifndef __KV_ERROR_H__
@@ -56,6 +56,14 @@
 // 批量操作相关错误码
 #define KV_ERR_BATCH_FULL        27  // 批次已满
 #define KV_ERR_BATCH_TOO_LARGE   28  // 批次过大
+
+// 缓存相关错误码
+#define KV_SUCCESS               0   // 成功
+#define KV_ERR_KEY_NOT_FOUND     29  // 键未找到
+#define KV_ERR_KEY_EXISTS        30  // 键已存在
+#define KV_ERR_KEY_TOO_LONG      31  // 键过长
+#define KV_ERR_MEMORY_ALLOC      32  // 内存分配失败
+#define KV_ERR_LOCK_FAILED       33  // 锁操作失败
 
 #define KV_ERR_UNKNOWN           100 // 未知错误
 
