@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-6-9 19:47:08
+* @LastEditTime: 2025-6-10 16:24:08
 * @Description: ConcordKV storage engine - kv_error.h
  */
 #ifndef __KV_ERROR_H__
@@ -64,6 +64,18 @@
 #define KV_ERR_KEY_TOO_LONG      31  // 键过长
 #define KV_ERR_MEMORY_ALLOC      32  // 内存分配失败
 #define KV_ERR_LOCK_FAILED       33  // 锁操作失败
+
+// I/O优化器相关错误码
+#define KV_ERR_IO                34  // I/O操作错误
+#define KV_ERR_OVERFLOW          35  // 缓冲区溢出
+#define KV_ERR_UNDERFLOW         36  // 缓冲区下溢
+#define KV_ERR_ALIGNMENT         37  // 内存对齐错误
+#define KV_ERR_DEVICE            38  // 设备错误
+#define KV_ERR_ASYNC_FAILED      39  // 异步操作失败
+#define KV_ERR_BATCH_FAILED      40  // 批量操作失败
+#define KV_ERR_MMAP_FAILED       41  // 内存映射失败
+#define KV_ERR_STATE             42  // 状态错误
+#define KV_ERR_CONFIG            43  // 配置错误
 
 #define KV_ERR_UNKNOWN           100 // 未知错误
 

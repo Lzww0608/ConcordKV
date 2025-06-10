@@ -66,7 +66,7 @@ void kv_store_free(void *ptr);
 #define NETWORK_NTYCO		1
 #define NETWORK_IOURING		2
 
-#define ENABLE_NETWORK_SELECT	NETWORK_NTYCO
+#define ENABLE_NETWORK_SELECT	NETWORK_EPOLL
 
 
 #define ENABLE_ARRAY_KVENGINE	1

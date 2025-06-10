@@ -25,11 +25,14 @@ LSM_OBJS = lsm_memtable.o lsm_memtable_manager.o
 # Cache缓存层相关文件 ⚡
 CACHE_OBJS = kv_cache.o
 
+# I/O优化器相关文件 🚀
+IO_OPTIMIZER_OBJS = kv_io_optimizer.o
+
 # 所有目标文件
-ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS)
+ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS) $(IO_OPTIMIZER_OBJS)
 
 # 测试程序使用的所有对象文件
-ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS)
+ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS) $(IO_OPTIMIZER_OBJS)
 
 # 目标可执行文件
 TARGET = kvserver
@@ -44,6 +47,7 @@ LSM_MEMTABLE_TEST_TARGET = lsm_memtable_test
 CACHE_TEST_TARGET = kv_cache_test
 CACHE_COMPREHENSIVE_TEST_TARGET = kv_cache_comprehensive_test
 CACHE_EXAMPLE_TARGET = cache_example
+IO_OPTIMIZER_TEST_TARGET = kv_io_optimizer_test
 
 # 默认目标
 all: $(TARGET) $(SHARED_LIB)
@@ -96,6 +100,10 @@ $(CACHE_COMPREHENSIVE_TEST_TARGET): ../tests/kvserver_tests/cache_tests/kv_cache
 $(CACHE_EXAMPLE_TARGET): ../examples/cache_example.o $(ALL_TEST_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
+# 编译I/O优化器测试程序 🚀
+$(IO_OPTIMIZER_TEST_TARGET): ../tests/kvserver_tests/io_optimizer_tests/kv_io_optimizer_test.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
 # 规则：从.c文件生成.o文件
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -138,6 +146,10 @@ $(CACHE_EXAMPLE_TARGET): ../examples/cache_example.o $(ALL_TEST_OBJS)
 
 # 编译tests/kvserver_tests/cache_tests目录下的.c文件 ⚡
 ../tests/kvserver_tests/cache_tests/%.o: ../tests/kvserver_tests/cache_tests/%.c
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
+# 编译tests/kvserver_tests/io_optimizer_tests目录下的.c文件 🚀
+../tests/kvserver_tests/io_optimizer_tests/%.o: ../tests/kvserver_tests/io_optimizer_tests/%.c
 	$(CC) $(CFLAGS) -I. -c $< -o $@
 
 # 编译examples目录下的.c文件
@@ -189,6 +201,11 @@ run_cache_comprehensive_test: $(CACHE_COMPREHENSIVE_TEST_TARGET)
 	@echo "⚡ 运行缓存层综合测试..."
 	./$(CACHE_COMPREHENSIVE_TEST_TARGET)
 
+# 运行I/O优化器测试 🚀
+run_io_optimizer_test: $(IO_OPTIMIZER_TEST_TARGET)
+	@echo "🚀 运行I/O优化器测试..."
+	./$(IO_OPTIMIZER_TEST_TARGET)
+
 # 运行LSM-Tree测试
 test_lsm: run_lsm_manager_test run_lsm_memtable_test
 	@echo "🔥 LSM-Tree测试完成"
@@ -197,13 +214,17 @@ test_lsm: run_lsm_manager_test run_lsm_memtable_test
 test_cache: run_cache_test run_cache_comprehensive_test
 	@echo "⚡ 缓存层测试完成"
 
+# 运行I/O优化器测试
+test_io_optimizer: run_io_optimizer_test
+	@echo "🚀 I/O优化器测试完成"
+
 # 运行缓存层示例
 run_cache_example: $(CACHE_EXAMPLE_TARGET)
 	@echo "🎯 运行缓存层功能演示..."
 	./$(CACHE_EXAMPLE_TARGET)
 
 # 运行所有测试
-test_all: test run_btree_test run_lsm_manager_test run_lsm_memtable_test test_cache
+test_all: test run_btree_test run_lsm_manager_test run_lsm_memtable_test test_cache test_io_optimizer
 	@echo "✅ 所有测试完成"
 
 # 运行Hash存储引擎测试
@@ -232,7 +253,7 @@ test_engine_interface:
 	@echo "引擎接口测试需要手动编译和运行"
 
 # 运行分类测试汇总
-test_by_category: test_hash test_rbtree test_array test_system test_engine_interface run_btree_test test_lsm
+test_by_category: test_hash test_rbtree test_array test_system test_engine_interface run_btree_test test_lsm test_cache test_io_optimizer
 	@echo "🎯 所有分类测试完成"
 
 # 性能测试（更大数据量）
@@ -330,6 +351,9 @@ help:
 	@echo "🎯 分类测试:"
 	@echo "  run_btree_test     - B+Tree存储引擎测试"
 	@echo "  run_production_test - B+Tree生产环境检查"
+	@echo "  test_lsm           - LSM-Tree存储引擎测试"
+	@echo "  test_cache         - 缓存层功能测试"
+	@echo "  test_io_optimizer  - I/O优化器功能测试"
 	@echo "  test_hash          - Hash存储引擎测试"
 	@echo "  test_rbtree        - RBTree存储引擎测试"
 	@echo "  test_array         - Array存储引擎测试"
