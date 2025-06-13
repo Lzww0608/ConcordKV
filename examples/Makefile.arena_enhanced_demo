@@ -1,0 +1,175 @@
+# ConcordKV 增强版Arena内存池演示 Makefile
+# @Author: Lzww0608
+# @Date: 2025-01-08 16:55:00
+# @LastEditors: Lzww0608
+# @LastEditTime: 2025-01-08 16:55:00
+# @Description: 增强版Arena内存池演示程序构建脚本
+
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99 -g -O2
+LDFLAGS = -lpthread
+
+# 检测系统是否支持NUMA
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+    # 检查是否安装了libnuma
+    NUMA_CHECK := $(shell pkg-config --exists libnuma && echo "yes" || echo "no")
+    ifeq ($(NUMA_CHECK),yes)
+        CFLAGS += -DHAVE_NUMA
+        LDFLAGS += -lnuma
+    endif
+endif
+
+# 源文件路径
+KVSERVER_DIR = ../kvserver
+MEMORY_SRC = $(KVSERVER_DIR)/kv_memory.c
+MEMORY_HDR = $(KVSERVER_DIR)/kv_memory.h
+
+# 演示程序文件
+DEMO_SRC = arena_memory_enhanced_demo.c
+TARGET = arena_memory_enhanced_demo
+
+# 默认目标
+.PHONY: all clean run demo help info
+
+all: $(TARGET)
+
+# 编译演示程序
+$(TARGET): $(DEMO_SRC) $(MEMORY_SRC) $(MEMORY_HDR)
+	@echo "🔨 编译增强版Arena内存池演示程序..."
+	$(CC) $(CFLAGS) -o $@ $(DEMO_SRC) $(MEMORY_SRC) $(LDFLAGS)
+	@echo "✅ 演示程序编译完成"
+
+# 运行演示程序
+run: $(TARGET)
+	@echo "🚀 运行增强版Arena内存池演示..."
+	@echo "========================================"
+	./$(TARGET)
+
+# 演示程序别名
+demo: run
+
+# 性能演示
+performance: $(TARGET)
+	@echo "📊 运行性能演示..."
+	@echo "========================================"
+	@echo "⚡ 基础性能测试:"
+	./$(TARGET) | grep -A 20 "演示5: 性能对比测试"
+	@echo ""
+
+# 线程安全演示
+threading: $(TARGET)
+	@echo "🧵 运行线程安全演示..."
+	@echo "========================================"
+	./$(TARGET) | grep -A 30 "演示2: 线程安全功能"
+
+# 统计功能演示
+statistics: $(TARGET)
+	@echo "📊 运行统计功能演示..."
+	@echo "========================================"
+	./$(TARGET) | grep -A 50 "演示4: 统计增强功能"
+
+# 块缓存演示
+cache: $(TARGET)
+	@echo "🗄️ 运行块缓存演示..."
+	@echo "========================================"
+	./$(TARGET) | grep -A 30 "演示3: 块缓存和重用功能"
+
+# NUMA演示
+numa: $(TARGET)
+	@echo "🌐 运行NUMA优化演示..."
+	@echo "========================================"
+	./$(TARGET) | grep -A 20 "演示6: NUMA优化功能"
+
+# 内存泄漏检测
+valgrind: $(TARGET)
+	@echo "🔍 运行内存泄漏检测..."
+	@echo "========================================"
+	@if command -v valgrind >/dev/null 2>&1; then \
+		valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes \
+		--suppressions=/dev/null ./$(TARGET); \
+	else \
+		echo "❌ 未安装valgrind，跳过内存泄漏检测"; \
+		echo "💡 安装命令: sudo apt-get install valgrind"; \
+	fi
+
+# 性能分析
+perf: $(TARGET)
+	@echo "📈 运行性能分析..."
+	@echo "========================================"
+	@if command -v perf >/dev/null 2>&1; then \
+		echo "🔍 CPU性能分析:"; \
+		perf stat -e cycles,instructions,cache-misses,cache-references ./$(TARGET); \
+		echo ""; \
+		echo "🔍 内存访问分析:"; \
+		perf stat -e L1-dcache-loads,L1-dcache-load-misses,LLC-loads,LLC-load-misses ./$(TARGET); \
+	else \
+		echo "❌ 未安装perf工具，跳过性能分析"; \
+		echo "💡 安装命令: sudo apt-get install linux-tools-generic"; \
+	fi
+
+# 压力测试
+stress: $(TARGET)
+	@echo "🔥 运行压力测试..."
+	@echo "========================================"
+	@echo "运行多次演示程序以测试稳定性:"
+	@for i in 1 2 3 4 5; do \
+		echo "第$$i轮测试:"; \
+		timeout 60s ./$(TARGET) >/dev/null 2>&1 && echo "✅ 成功" || echo "❌ 失败/超时"; \
+	done
+
+# 编译信息
+info:
+	@echo "📋 编译环境信息"
+	@echo "========================================"
+	@echo "编译器: $(CC)"
+	@echo "编译选项: $(CFLAGS)"
+	@echo "链接选项: $(LDFLAGS)"
+	@echo "系统: $(UNAME_S)"
+ifeq ($(UNAME_S),Linux)
+	@echo "NUMA支持: $(NUMA_CHECK)"
+endif
+	@echo "源文件: $(MEMORY_SRC)"
+	@echo "头文件: $(MEMORY_HDR)"
+	@echo "演示程序: $(DEMO_SRC)"
+
+# 清理
+clean:
+	@echo "🧹 清理编译文件..."
+	rm -f $(TARGET)
+	rm -f *.o *.core core.*
+	@echo "✅ 清理完成"
+
+# 帮助信息
+help:
+	@echo "🚀 ConcordKV 增强版Arena内存池演示构建系统"
+	@echo "=============================================="
+	@echo "可用目标:"
+	@echo "  all         - 编译演示程序"
+	@echo "  run/demo    - 运行完整演示"
+	@echo "  performance - 运行性能演示"
+	@echo "  threading   - 运行线程安全演示"
+	@echo "  statistics  - 运行统计功能演示"
+	@echo "  cache       - 运行块缓存演示"
+	@echo "  numa        - 运行NUMA优化演示"
+	@echo "  valgrind    - 运行内存泄漏检测"
+	@echo "  perf        - 运行性能分析"
+	@echo "  stress      - 运行压力测试"
+	@echo "  info        - 显示编译环境信息"
+	@echo "  clean       - 清理编译文件"
+	@echo "  help        - 显示此帮助信息"
+	@echo ""
+	@echo "🔧 使用示例:"
+	@echo "  make demo           # 运行完整演示"
+	@echo "  make performance    # 性能对比演示"
+	@echo "  make threading      # 线程安全演示"
+	@echo "  make valgrind       # 内存泄漏检测"
+	@echo "  make stress         # 压力测试"
+	@echo ""
+	@echo "📝 演示内容:"
+	@echo "  • 基础功能展示"
+	@echo "  • 线程安全功能"
+	@echo "  • 块缓存和重用机制"
+	@echo "  • 统计增强功能"
+	@echo "  • 性能对比测试"
+	@echo "  • NUMA优化功能" 

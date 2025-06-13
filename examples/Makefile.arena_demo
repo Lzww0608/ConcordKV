@@ -1,0 +1,48 @@
+# ConcordKV Arena内存池演示程序 Makefile
+# Author: Lzww0608
+# Date: 2025-01-08
+
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99 -g -O2
+LDFLAGS = -lm
+
+# 源文件路径
+SRC_DIR = ../kvserver
+DEMO_SRC = arena_memory_demo.c
+MEMORY_SRC = $(SRC_DIR)/kv_memory.c
+
+# 目标文件
+TARGET = arena_demo
+OBJ_DIR = build_demo
+MEMORY_OBJ = $(OBJ_DIR)/kv_memory.o
+DEMO_OBJ = $(OBJ_DIR)/arena_memory_demo.o
+
+# 默认目标
+all: $(TARGET)
+
+# 创建目录
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
+# 编译内存模块
+$(MEMORY_OBJ): $(MEMORY_SRC) | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -c $< -o $@
+
+# 编译演示程序
+$(DEMO_OBJ): $(DEMO_SRC) | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -I$(SRC_DIR) -c $< -o $@
+
+# 链接生成可执行文件
+$(TARGET): $(MEMORY_OBJ) $(DEMO_OBJ)
+	$(CC) $(MEMORY_OBJ) $(DEMO_OBJ) $(LDFLAGS) -o $@
+
+# 运行演示
+run: $(TARGET)
+	@echo "运行Arena内存池演示..."
+	./$(TARGET)
+
+# 清理
+clean:
+	rm -rf $(OBJ_DIR) $(TARGET)
+
+.PHONY: all run clean 
