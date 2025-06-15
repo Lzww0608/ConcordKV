@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 23:53:42
+* @LastEditTime: 2025-6-15 16:35:39
 * @Description: ConcordKV storage engine - kvstore_rbtree.c
  */
 
@@ -448,7 +448,7 @@ static void _rbtree_destroy_recursive(rbtree *tree, rbtree_node *node) {
 
 int kvs_rbtree_set(rbtree *tree, char *key, char *value) {
 
-	rbtree_node *node  = (rbtree_node*)malloc(sizeof(rbtree_node));
+	rbtree_node *node  = (rbtree_node*)kv_store_malloc(sizeof(rbtree_node));
 	if (!node) return -1;
 
 	node->key = kv_store_malloc(strlen(key) + 1);

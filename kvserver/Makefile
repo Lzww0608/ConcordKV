@@ -6,7 +6,7 @@ LDFLAGS = -lpthread
 # 源文件和目标文件（移除有问题的文件）
 CORE_OBJS = kvstore.o kvstore_array.o kvstore_hash.o kvstore_rbtree.o rbtree_adapter.o \
             kv_persist.o kv_concurrency.o kv_transaction.o kv_error.o kv_cluster.o \
-            epoll_entry.o
+            epoll_entry.o kv_memory.o
 
 # 测试程序使用的对象文件（不包含main函数的kvstore.o）
 TEST_OBJS = kvstore_array.o kvstore_hash.o kvstore_rbtree.o rbtree_adapter.o \

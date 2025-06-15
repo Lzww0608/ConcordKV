@@ -2,7 +2,7 @@
  * @Author: Lzww0608  
  * @Date: 2025-5-31 23:42:03
  * @LastEditors: Lzww0608
- * @LastEditTime: 2025-6-1 00:34:14
+ * @LastEditTime: 2025-6-15 16:35:47
  * @Description: ConcordKV B+Tree存储引擎实现
  */
 #define _GNU_SOURCE     // 启用扩展函数
@@ -10,6 +10,7 @@
 
 #include "kvstore_btree.h"
 #include "kv_error.h"
+#include "kv_memory.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -46,7 +47,7 @@ int btree_key_compare(const char *key1, size_t len1, const char *key2, size_t le
 char* btree_key_copy(const char *key, size_t len) {
     if (!key || len == 0) return NULL;
     
-    char *copy = (char*)malloc(len + 1);
+    char *copy = (char*)kv_store_malloc(len + 1);
     if (!copy) {
         KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for key copy");
         return NULL;
@@ -63,7 +64,7 @@ char* btree_key_copy(const char *key, size_t len) {
 char* btree_value_copy(const char *value, size_t len) {
     if (!value || len == 0) return NULL;
     
-    char *copy = (char*)malloc(len + 1);
+    char *copy = (char*)kv_store_malloc(len + 1);
     if (!copy) {
         KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for value copy");
         return NULL;
@@ -85,7 +86,7 @@ btree_node_t* btree_node_create(btree_node_type_t type, int order) {
         return NULL;
     }
     
-    btree_node_t *node = (btree_node_t*)calloc(1, sizeof(btree_node_t));
+    btree_node_t *node = (btree_node_t*)kv_store_calloc(1, sizeof(btree_node_t));
     if (!node) {
         KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for B+Tree node");
         return NULL;
@@ -102,50 +103,50 @@ btree_node_t* btree_node_create(btree_node_type_t type, int order) {
     node->version = 0;
     
     // 分配键数组
-    node->keys = (char**)calloc(order, sizeof(char*));
+    node->keys = (char**)kv_store_calloc(order, sizeof(char*));
     if (!node->keys) {
         KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for keys array");
-        free(node);
+        kv_store_free(node);
         return NULL;
     }
     
     // 分配键长度数组
-    node->key_lens = (size_t*)calloc(order, sizeof(size_t));
+    node->key_lens = (size_t*)kv_store_calloc(order, sizeof(size_t));
     if (!node->key_lens) {
         KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for key lengths array");
-        free(node->keys);
-        free(node);
+        kv_store_free(node->keys);
+        kv_store_free(node);
         return NULL;
     }
     
     if (node->is_leaf) {
         // 叶子节点：分配值数组和值长度数组
-        node->values = (char**)calloc(order, sizeof(char*));
+        node->values = (char**)kv_store_calloc(order, sizeof(char*));
         if (!node->values) {
             KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for values array");
-            free(node->key_lens);
-            free(node->keys);
-            free(node);
+            kv_store_free(node->key_lens);
+            kv_store_free(node->keys);
+            kv_store_free(node);
             return NULL;
         }
         
-        node->value_lens = (size_t*)calloc(order, sizeof(size_t));
+        node->value_lens = (size_t*)kv_store_calloc(order, sizeof(size_t));
         if (!node->value_lens) {
             KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for value lengths array");
-            free(node->values);
-            free(node->key_lens);
-            free(node->keys);
-            free(node);
+            kv_store_free(node->values);
+            kv_store_free(node->key_lens);
+            kv_store_free(node->keys);
+            kv_store_free(node);
             return NULL;
         }
     } else {
         // 内部节点：分配子节点指针数组(需要order+1个子节点)
-        node->children = (btree_node_t**)calloc(order + 1, sizeof(btree_node_t*));
+        node->children = (btree_node_t**)kv_store_calloc(order + 1, sizeof(btree_node_t*));
         if (!node->children) {
             KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for children array");
-            free(node->key_lens);
-            free(node->keys);
-            free(node);
+            kv_store_free(node->key_lens);
+            kv_store_free(node->keys);
+            kv_store_free(node);
             return NULL;
         }
         node->value_lens = NULL;  // 内部节点不使用值长度数组
@@ -155,14 +156,14 @@ btree_node_t* btree_node_create(btree_node_type_t type, int order) {
     if (pthread_rwlock_init(&node->lock, NULL) != 0) {
         KV_ERROR(KV_ERR_SYS, "Failed to initialize node rwlock");
         if (node->is_leaf) {
-            free(node->value_lens);
-            free(node->values);
+            kv_store_free(node->value_lens);
+            kv_store_free(node->values);
         } else {
-            free(node->children);
+            kv_store_free(node->children);
         }
-        free(node->key_lens);
-        free(node->keys);
-        free(node);
+        kv_store_free(node->key_lens);
+        kv_store_free(node->keys);
+        kv_store_free(node);
         return NULL;
     }
     
@@ -178,11 +179,11 @@ void btree_node_destroy(btree_node_t *node) {
     // 销毁所有键和值
     for (int i = 0; i < node->key_count; i++) {
         if (node->keys[i]) {
-            free(node->keys[i]);
+            kv_store_free(node->keys[i]);
         }
         
         if (node->is_leaf && node->values[i]) {
-            free(node->values[i]);
+            kv_store_free(node->values[i]);
         }
     }
     
@@ -193,22 +194,22 @@ void btree_node_destroy(btree_node_t *node) {
                 btree_node_destroy(node->children[i]);
             }
         }
-        free(node->children);
+        kv_store_free(node->children);
     }
     
     // 释放数组内存
-    if (node->keys) free(node->keys);
-    if (node->key_lens) free(node->key_lens);
+    if (node->keys) kv_store_free(node->keys);
+    if (node->key_lens) kv_store_free(node->key_lens);
     if (node->is_leaf) {
-        if (node->values) free(node->values);
-        if (node->value_lens) free(node->value_lens);
+        if (node->values) kv_store_free(node->values);
+        if (node->value_lens) kv_store_free(node->value_lens);
     }
     
     // 销毁锁
     pthread_rwlock_destroy(&node->lock);
     
     // 释放节点内存
-    free(node);
+    kv_store_free(node);
 }
 
 /**
@@ -429,7 +430,7 @@ btree_t* btree_create(int order) {
         return NULL;
     }
     
-    btree_t *tree = (btree_t*)calloc(1, sizeof(btree_t));
+    btree_t *tree = (btree_t*)kv_store_calloc(1, sizeof(btree_t));
     if (!tree) {
         KV_ERROR(KV_ERR_MEM, "Failed to allocate memory for B+Tree");
         return NULL;
@@ -438,7 +439,7 @@ btree_t* btree_create(int order) {
     // 创建根节点(初始为叶子节点)
     tree->root = btree_node_create(BTREE_NODE_LEAF, order);
     if (!tree->root) {
-        free(tree);
+        kv_store_free(tree);
         return NULL;
     }
     
@@ -460,7 +461,7 @@ btree_t* btree_create(int order) {
     if (pthread_rwlock_init(&tree->tree_lock, NULL) != 0) {
         KV_ERROR(KV_ERR_SYS, "Failed to initialize tree rwlock");
         btree_node_destroy(tree->root);
-        free(tree);
+        kv_store_free(tree);
         return NULL;
     }
     
@@ -482,7 +483,7 @@ void btree_destroy(btree_t *tree) {
     pthread_rwlock_destroy(&tree->tree_lock);
     
     // 释放树结构
-    free(tree);
+    kv_store_free(tree);
 }
 
 /**

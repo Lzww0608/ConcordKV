@@ -2,7 +2,7 @@
  * @Author: Lzww0608  
  * @Date: 2025-5-30 22:42:07
  * @LastEditors: Lzww0608
- * @LastEditTime: 2025-6-13 17:33:09
+ * @LastEditTime: 2025-6-15 16:41:04
  * @Description: ConcordKV 内存管理模块 - 增强版Arena内存池实现
  */
 #ifndef _GNU_SOURCE
@@ -814,6 +814,25 @@ void *kv_store_realloc(void *ptr, size_t size) {
     return new_ptr;
 #else
     return realloc(ptr, size);
+#endif
+}
+
+// 内存分配并清零函数
+void *kv_store_calloc(size_t nmemb, size_t size) {
+#ifdef ENABLE_MEM_POOL
+    // 检查溢出
+    if (nmemb != 0 && size > SIZE_MAX / nmemb) {
+        return NULL;
+    }
+    
+    size_t total_size = nmemb * size;
+    void *ptr = kv_store_malloc(total_size);
+    if (ptr) {
+        memset(ptr, 0, total_size);
+    }
+    return ptr;
+#else
+    return calloc(nmemb, size);
 #endif
 }
 

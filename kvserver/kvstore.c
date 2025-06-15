@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-6-15 17:00:15
 * @Description: ConcordKV storage engine - kvstore.c
  */
 
@@ -44,20 +44,7 @@ enum {
 	KVS_CMD_SIZE,
 };
 
-/// 
-void *kv_store_malloc(size_t size) {
-#if ENABLE_MEM_POOL
-#else
-	return malloc(size);
-#endif
-}
-
-void kv_store_free(void *ptr) {
-#if ENABLE_MEM_POOL
-#else
-	return free(ptr);
-#endif
-}
+// kv_store_malloc和kv_store_free函数现在在kv_memory.c中实现
 
 
 

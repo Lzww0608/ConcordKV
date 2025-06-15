@@ -6,7 +6,7 @@
 # @Description: Arena内存池测试构建脚本
 
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -g -O2
+CFLAGS = -Wall -Wextra -std=c99 -g -O2 -D_GNU_SOURCE -D_POSIX_C_SOURCE=200809L
 LDFLAGS = -lpthread
 
 # 检测系统是否支持NUMA
@@ -35,11 +35,12 @@ TARGET_ENHANCED = test_arena_memory_enhanced
 TARGET_BLOCK_DEMO = block_size_performance_demo
 TARGET_DEBUG = debug_test_runner
 TARGET_QUICK = quick_perf_test
+TARGET_INTEGRATION = kv_memory_integration_test
 
 # 默认目标
 .PHONY: all clean test test-basic test-enhanced benchmark valgrind help
 
-all: $(TARGET_BASIC) $(TARGET_ENHANCED) $(TARGET_BLOCK_DEMO) $(TARGET_DEBUG) $(TARGET_QUICK)
+all: $(TARGET_BASIC) $(TARGET_ENHANCED) $(TARGET_BLOCK_DEMO) $(TARGET_DEBUG) $(TARGET_QUICK) $(TARGET_INTEGRATION)
 
 # 编译基础版测试
 $(TARGET_BASIC): $(TEST_BASIC) $(MEMORY_SRC) $(MEMORY_HDR)
@@ -70,6 +71,12 @@ $(TARGET_QUICK): quick_perf_test.c $(MEMORY_SRC) $(MEMORY_HDR)
 	@echo "🔨 编译快速性能测试程序..."
 	$(CC) $(CFLAGS) -o $@ quick_perf_test.c $(MEMORY_SRC) $(LDFLAGS)
 	@echo "✅ 快速性能测试程序编译完成"
+
+# 编译内存池集成测试
+$(TARGET_INTEGRATION): kv_memory_integration_test.c $(MEMORY_SRC) $(MEMORY_HDR)
+	@echo "🔨 编译内存池集成测试程序..."
+	$(CC) $(CFLAGS) -o $@ kv_memory_integration_test.c $(MEMORY_SRC) $(LDFLAGS)
+	@echo "✅ 内存池集成测试程序编译完成"
 
 # 运行基础版测试
 test-basic: $(TARGET_BASIC)
@@ -106,8 +113,15 @@ quick: $(TARGET_QUICK)
 	./$(TARGET_QUICK)
 	@echo ""
 
+# 运行内存池集成测试
+test-integration: $(TARGET_INTEGRATION)
+	@echo "🔗 运行内存池集成测试..."
+	@echo "========================================"
+	./$(TARGET_INTEGRATION)
+	@echo ""
+
 # 运行所有测试
-test: test-basic test-enhanced
+test: test-basic test-enhanced test-integration
 	@echo "🎉 所有Arena内存池测试完成！"
 
 # 性能基准测试
