@@ -16,6 +16,9 @@ TEST_OBJS = kvstore_array.o kvstore_hash.o kvstore_rbtree.o rbtree_adapter.o \
 # 新增的统一引擎接口相关文件
 ENGINE_OBJS = kv_engine_factory.o
 
+# 配置系统相关文件 🔧
+CONFIG_OBJS = kv_engine_config.o ../common/config/config.o ../common/config/parser.o
+
 # B+Tree存储引擎文件
 BTREE_OBJS = kvstore_btree.o btree_adapter.o
 
@@ -29,10 +32,10 @@ CACHE_OBJS = kv_cache.o
 IO_OPTIMIZER_OBJS = kv_io_optimizer.o
 
 # 所有目标文件
-ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS) $(IO_OPTIMIZER_OBJS)
+ALL_OBJS = $(CORE_OBJS) $(ENGINE_OBJS) $(CONFIG_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS) $(IO_OPTIMIZER_OBJS)
 
 # 测试程序使用的所有对象文件
-ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS) $(IO_OPTIMIZER_OBJS)
+ALL_TEST_OBJS = $(TEST_OBJS) $(ENGINE_OBJS) $(CONFIG_OBJS) $(BTREE_OBJS) $(LSM_OBJS) $(CACHE_OBJS) $(IO_OPTIMIZER_OBJS)
 
 # 目标可执行文件
 TARGET = kvserver
@@ -48,6 +51,8 @@ CACHE_TEST_TARGET = kv_cache_test
 CACHE_COMPREHENSIVE_TEST_TARGET = kv_cache_comprehensive_test
 CACHE_EXAMPLE_TARGET = cache_example
 IO_OPTIMIZER_TEST_TARGET = kv_io_optimizer_test
+CONFIG_SERVER_TARGET = kv_server_main
+CONFIG_TEST_TARGET = test_config_system
 
 # 默认目标
 all: $(TARGET) $(SHARED_LIB)
@@ -104,6 +109,14 @@ $(CACHE_EXAMPLE_TARGET): ../examples/cache_example.o $(ALL_TEST_OBJS)
 $(IO_OPTIMIZER_TEST_TARGET): ../tests/kvserver_tests/io_optimizer_tests/kv_io_optimizer_test.o $(ALL_TEST_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
+# 编译配置系统集成的主服务器 🔧
+$(CONFIG_SERVER_TARGET): kv_server_main.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+# 编译配置系统测试程序 🔧
+$(CONFIG_TEST_TARGET): ../tests/kvserver_tests/config_tests/test_config_system.o $(ALL_TEST_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
 # 规则：从.c文件生成.o文件
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -156,6 +169,14 @@ $(IO_OPTIMIZER_TEST_TARGET): ../tests/kvserver_tests/io_optimizer_tests/kv_io_op
 ../examples/%.o: ../examples/%.c
 	$(CC) $(CFLAGS) -I. -c $< -o $@
 
+# 编译common/config目录下的.c文件 🔧
+../common/config/%.o: ../common/config/%.c
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
+# 编译tests/kvserver_tests/config_tests目录下的.c文件 🔧
+../tests/kvserver_tests/config_tests/%.o: ../tests/kvserver_tests/config_tests/%.c
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
 # 运行测试
 test: $(TEST_TARGET)
 	@echo "🚀 运行存储引擎接口测试..."
@@ -205,6 +226,21 @@ run_cache_comprehensive_test: $(CACHE_COMPREHENSIVE_TEST_TARGET)
 run_io_optimizer_test: $(IO_OPTIMIZER_TEST_TARGET)
 	@echo "🚀 运行I/O优化器测试..."
 	./$(IO_OPTIMIZER_TEST_TARGET)
+
+# 运行配置系统集成的服务器 🔧
+run_config_server: $(CONFIG_SERVER_TARGET)
+	@echo "🔧 运行配置系统集成的ConcordKV服务器..."
+	./$(CONFIG_SERVER_TARGET) -c engine_config.json -i
+
+# 运行配置服务器（仅使用默认配置）
+run_config_server_default: $(CONFIG_SERVER_TARGET)
+	@echo "🔧 运行配置系统集成的ConcordKV服务器（默认配置）..."
+	./$(CONFIG_SERVER_TARGET) -i
+
+# 运行配置系统测试 🔧
+run_config_test: $(CONFIG_TEST_TARGET)
+	@echo "🔧 运行配置系统测试..."
+	./$(CONFIG_TEST_TARGET)
 
 # 运行LSM-Tree测试
 test_lsm: run_lsm_manager_test run_lsm_memtable_test

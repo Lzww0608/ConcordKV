@@ -27,6 +27,7 @@ ConcordKV是一个使用C语言实现的高性能、分布式键值存储系统�
 - **零拷贝I/O** - 高效的数据传输
 
 ### 📊 生产级功能
+- **配置管理系统** 🔧 - **新增**统一配置管理，支持运行时引擎切换
 - **WAL日志** - 写前日志保证数据持久性
 - **快照备份** - 支持增量和全量备份
 - **集群管理** - 自动故障检测和恢复
@@ -58,6 +59,12 @@ ConcordKV是一个使用C语言实现的高性能、分布式键值存储系统�
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    应用层 (Client)                      │
+├─────────────────────────────────────────────────────────┤
+│                  配置管理层 🔧                         │
+│  ┌─────────────────────────────────────────────────────┐│
+│  │ kv_engine_config.h - 统一配置管理系统              ││
+│  │ 多引擎管理 | 运行时切换 | JSON/环境变量配置        ││
+│  └─────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────┤
 │                  统一引擎接口层                        │
 │  ┌─────────────────────────────────────────────────────┐│
@@ -262,6 +269,98 @@ int main() {
 }
 ```
 
+### 配置系统使用示例 🔧 **新增**
+
+```c
+#include "kv_engine_config.h"
+
+int main() {
+    // 1. 创建全局配置
+    kv_engine_global_config_t *config = kv_engine_global_config_create();
+    
+    // 2. 从JSON文件加载配置
+    kv_engine_global_config_t *file_config = kv_engine_config_load_from_file("engine_config.json");
+    if (file_config) {
+        printf("从配置文件加载成功\n");
+        config = file_config;
+    }
+    
+    // 3. 从环境变量加载配置 (优先级更高)
+    kv_engine_config_load_from_env(config, "CONCORD_");
+    
+    // 4. 创建引擎管理器
+    kv_engine_manager_t *manager = kv_engine_manager_create(config);
+    
+    // 5. 初始化所有配置的引擎
+    if (kv_engine_manager_init_engines(manager) == 0) {
+        printf("引擎初始化成功\n");
+        
+        // 6. 使用默认引擎进行操作
+        kv_engine_t *current = kv_engine_manager_get_current(manager);
+        current->vtable->set(current, "user:001", "张三");
+        
+        // 7. 运行时切换到不同引擎
+        printf("切换到Hash引擎...\n");
+        kv_engine_manager_switch_engine(manager, KV_ENGINE_HASH);
+        
+        current = kv_engine_manager_get_current(manager);
+        current->vtable->set(current, "user:002", "李四");
+        
+        // 8. 切换到B+Tree引擎
+        printf("切换到B+Tree引擎...\n");
+        kv_engine_manager_switch_engine(manager, KV_ENGINE_BTREE);
+        
+        current = kv_engine_manager_get_current(manager);
+        char *value = current->vtable->get(current, "user:001");
+        printf("查询结果: %s\n", value ? value : "未找到");
+        
+        // 9. 获取统计信息
+        kv_engine_stats_t stats;
+        kv_engine_manager_get_stats(manager, &stats);
+        printf("总操作数: %lu, 引擎切换次数: %lu\n", 
+               stats.total_operations, stats.engine_switches);
+    }
+    
+    // 10. 清理资源
+    kv_engine_manager_destroy(manager);
+    kv_engine_global_config_destroy(config);
+    
+    return 0;
+}
+```
+
+**配置文件示例 (engine_config.json):**
+```json
+{
+    "strategy": "adaptive",
+    "default_engine": "hash",
+    "worker_threads": 8,
+    "listen_port": 6379,
+    "data_directory": "./data",
+    "enable_statistics": true,
+    "global_memory_limit": 268435456,
+    "engines": {
+        "hash": {
+            "memory_limit": 67108864,
+            "cache_size": 16777216
+        },
+        "btree": {
+            "memory_limit": 134217728,
+            "cache_size": 33554432,
+            "order": 100
+        }
+    }
+}
+```
+
+**环境变量配置示例:**
+```bash
+export CONCORD_DEFAULT_ENGINE=btree
+export CONCORD_LISTEN_PORT=8080
+export CONCORD_DATA_DIR=/var/lib/concordkv
+export CONCORD_WORKER_THREADS=16
+```
+
 ### 高级功能示例
 
 ```c
@@ -288,6 +387,7 @@ engine->batch_set(engine, keys, values, 3);
 make test_by_category
 
 # 分类测试
+make run_config_test       # 配置系统测试 🔧
 make run_btree_test        # B+Tree存储引擎测试
 make run_production_test   # B+Tree生产级检查
 make test_lsm_memtable     # LSM-Tree MemTable测试 🔥
@@ -306,6 +406,7 @@ make memcheck
 ### 测试目录结构
 ```
 tests/kvserver_tests/
+├── config_tests/         # 配置系统测试 🔧
 ├── lsm_tests/            # LSM-Tree MemTable测试 🔥
 ├── btree_tests/          # B+Tree存储引擎测试
 ├── hash_tests/           # Hash存储引擎测试
