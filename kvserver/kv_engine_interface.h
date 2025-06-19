@@ -2,7 +2,7 @@
  * @Author: Lzww0608  
  * @Date: 2025-5-30 22:22:24
  * @LastEditors: Lzww0608
- * @LastEditTime: 2025-5-30 22:22:27
+ * @LastEditTime: 2025-6-19 11:29:31
  * @Description: ConcordKV 统一存储引擎接口定义
  */
 #ifndef __KV_ENGINE_INTERFACE_H__
@@ -169,6 +169,12 @@ typedef struct kv_engine_vtable {
     
     // === 引擎特定操作 ===
     int (*engine_specific)(kv_engine_t *engine, const char *operation, void *params);
+    
+    // === 监控相关接口 ===
+    int (*init_metrics)(kv_engine_t *engine, void *metrics_manager);
+    int (*collect_metrics)(kv_engine_t *engine, void *metrics_set);
+    int (*reset_metrics)(kv_engine_t *engine);
+    int (*get_engine_specific_metrics)(kv_engine_t *engine, void *metrics_data);
 } kv_engine_vtable_t;
 
 // 存储引擎主结构
@@ -181,6 +187,12 @@ struct kv_engine {
     pthread_rwlock_t lock;           // 引擎读写锁
     kv_engine_stats_t stats;         // 统计信息
     char name[64];                   // 引擎名称
+    
+    // === 监控相关字段 ===
+    void *metrics_manager;           // 监控管理器引用
+    void *metrics_set;               // 该引擎的指标集
+    bool metrics_enabled;            // 监控开关
+    uint64_t last_metrics_update;    // 上次指标更新时间
 };
 
 // === 存储引擎工厂函数 ===

@@ -2,13 +2,14 @@
  * @Author: Lzww0608  
  * @Date: 2025-5-30 22:31:57
  * @LastEditors: Lzww0608
- * @LastEditTime:2025-6-1 00:46:47
+ * @LastEditTime:2025-6-19 11:48:51
  * @Description: ConcordKV 存储引擎工厂实现
  */
 #define _GNU_SOURCE     // 启用扩展函数
 #define _POSIX_C_SOURCE 200809L  // 启用POSIX扩展
 
 #include "kv_engine_interface.h"
+#include "kv_engine_metrics.h"  // 监控管理器
 #include "kv_store.h"
 #include "rbtree_adapter.h"  // 包含完整的rbtree定义
 #include "btree_adapter.h"   // B+Tree适配器
@@ -16,12 +17,52 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 // === 前向声明 ===
 static int array_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
 static int rbtree_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
 static int hash_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
 static int btree_engine_init(kv_engine_t *engine, const kv_engine_config_t *config);
+
+// === 监控相关前向声明 ===
+static int array_init_metrics(kv_engine_t *engine, void *metrics_manager);
+static int rbtree_init_metrics(kv_engine_t *engine, void *metrics_manager);
+static int hash_init_metrics(kv_engine_t *engine, void *metrics_manager);
+static int btree_init_metrics(kv_engine_t *engine, void *metrics_manager);
+
+// === 监控辅助函数 ===
+static inline uint64_t get_time_us(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
+}
+
+static inline void record_operation_metrics(kv_engine_t *engine, 
+                                           const char *operation_type,
+                                           uint64_t start_time,
+                                           int result) {
+    if (!engine->metrics_enabled || !engine->metrics_manager) {
+        return;
+    }
+    
+    kv_engine_metrics_manager_t *manager = (kv_engine_metrics_manager_t*)engine->metrics_manager;
+    double latency_ms = (get_time_us() - start_time) / 1000.0;
+    
+    if (strcmp(operation_type, "read") == 0) {
+        kv_engine_metrics_record_read(manager, engine->type, latency_ms);
+    } else if (strcmp(operation_type, "write") == 0) {
+        kv_engine_metrics_record_write(manager, engine->type, latency_ms);
+    } else if (strcmp(operation_type, "delete") == 0) {
+        kv_engine_metrics_record_delete(manager, engine->type, latency_ms);
+    }
+    
+    // 记录错误
+    if (result != KV_ERR_NONE) {
+        const char *error_type = (result == KV_ERR_NOT_FOUND) ? "not_found" : "error";
+        kv_engine_metrics_record_error(manager, engine->type, error_type);
+    }
+}
 
 // === 引擎类型字符串映射 ===
 static const char* engine_type_names[] = {
@@ -47,6 +88,8 @@ static int array_set(kv_engine_t *engine, const char *key, const char *value) {
     KV_ENGINE_CHECK_VALID(engine);
     if (!key || !value) return KV_ERR_PARAM;
     
+    uint64_t start_time = get_time_us();
+    
     array_t *arr = (array_t*)engine->engine_data;
     int ret = kvs_array_set(arr, (char*)key, (char*)value);
     
@@ -55,18 +98,36 @@ static int array_set(kv_engine_t *engine, const char *key, const char *value) {
         engine->stats.write_count++;
     }
     
-    return ret == 0 ? KV_ERR_NONE : KV_ERR_SYS;
+    int result = ret == 0 ? KV_ERR_NONE : KV_ERR_SYS;
+    
+    // 记录监控指标
+    record_operation_metrics(engine, "write", start_time, result);
+    
+    // 更新内存使用量
+    if (engine->metrics_enabled && engine->metrics_manager && ret == 0) {
+        kv_engine_metrics_manager_t *manager = (kv_engine_metrics_manager_t*)engine->metrics_manager;
+        size_t memory_usage = kvs_array_memory_usage(arr);
+        kv_engine_metrics_update_memory_usage(manager, engine->type, memory_usage);
+    }
+    
+    return result;
 }
 
 static char* array_get(kv_engine_t *engine, const char *key) {
     KV_ENGINE_CHECK_VALID_NULL(engine);
     if (!key) return NULL;
     
+    uint64_t start_time = get_time_us();
+    
     array_t *arr = (array_t*)engine->engine_data;
     char *value = kvs_array_get(arr, (char*)key);
     
     // 更新统计信息
     engine->stats.read_count++;
+    
+    // 记录监控指标
+    int result = value ? KV_ERR_NONE : KV_ERR_NOT_FOUND;
+    record_operation_metrics(engine, "read", start_time, result);
     
     return value;
 }
@@ -75,13 +136,17 @@ static int array_delete(kv_engine_t *engine, const char *key) {
     KV_ENGINE_CHECK_VALID(engine);
     if (!key) return KV_ERR_PARAM;
     
+    uint64_t start_time = get_time_us();
+    
     array_t *arr = (array_t*)engine->engine_data;
     
     // 先检查键是否存在
     char *existing_value = kvs_array_get(arr, (char*)key);
     if (existing_value == NULL) {
         // 键不存在
-        return KV_ERR_NOT_FOUND;
+        int result = KV_ERR_NOT_FOUND;
+        record_operation_metrics(engine, "delete", start_time, result);
+        return result;
     }
     
     // 键存在，执行删除
@@ -90,11 +155,21 @@ static int array_delete(kv_engine_t *engine, const char *key) {
     // 更新统计信息
     if (ret == 0) {
         engine->stats.delete_count++;
-        return KV_ERR_NONE;
     }
     
-    // 删除失败
-    return KV_ERR_SYS;
+    int result = ret == 0 ? KV_ERR_NONE : KV_ERR_SYS;
+    
+    // 记录监控指标
+    record_operation_metrics(engine, "delete", start_time, result);
+    
+    // 更新内存使用量
+    if (engine->metrics_enabled && engine->metrics_manager && ret == 0) {
+        kv_engine_metrics_manager_t *manager = (kv_engine_metrics_manager_t*)engine->metrics_manager;
+        size_t memory_usage = kvs_array_memory_usage(arr);
+        kv_engine_metrics_update_memory_usage(manager, engine->type, memory_usage);
+    }
+    
+    return result;
 }
 
 static int array_update(kv_engine_t *engine, const char *key, const char *value) {
@@ -152,7 +227,12 @@ static kv_engine_vtable_t array_vtable = {
     .rollback_transaction = NULL,
     .create_snapshot = NULL,
     .restore_snapshot = NULL,
-    .engine_specific = NULL
+    .engine_specific = NULL,
+    // 监控相关接口
+    .init_metrics = array_init_metrics,
+    .collect_metrics = NULL,
+    .reset_metrics = NULL,
+    .get_engine_specific_metrics = NULL
 };
 
 // === RBTree存储引擎适配器 ===
@@ -801,4 +881,54 @@ void kv_engine_config_destroy(kv_engine_config_t *config) {
         kv_store_free(config->data_dir);
     }
     kv_store_free(config);
+}
+
+// === 监控接口实现 ===
+
+static int array_init_metrics(kv_engine_t *engine, void *metrics_manager) {
+    if (!engine || !metrics_manager) return KV_ERR_PARAM;
+    
+    engine->metrics_manager = metrics_manager;
+    engine->metrics_enabled = true;
+    engine->last_metrics_update = get_time_us();
+    
+    // 注册引擎到监控管理器
+    kv_engine_metrics_manager_t *manager = (kv_engine_metrics_manager_t*)metrics_manager;
+    return kv_engine_metrics_register_engine(manager, KV_ENGINE_ARRAY, engine->name);
+}
+
+static int rbtree_init_metrics(kv_engine_t *engine, void *metrics_manager) {
+    if (!engine || !metrics_manager) return KV_ERR_PARAM;
+    
+    engine->metrics_manager = metrics_manager;
+    engine->metrics_enabled = true;
+    engine->last_metrics_update = get_time_us();
+    
+    // 注册引擎到监控管理器
+    kv_engine_metrics_manager_t *manager = (kv_engine_metrics_manager_t*)metrics_manager;
+    return kv_engine_metrics_register_engine(manager, KV_ENGINE_RBTREE, engine->name);
+}
+
+static int hash_init_metrics(kv_engine_t *engine, void *metrics_manager) {
+    if (!engine || !metrics_manager) return KV_ERR_PARAM;
+    
+    engine->metrics_manager = metrics_manager;
+    engine->metrics_enabled = true;
+    engine->last_metrics_update = get_time_us();
+    
+    // 注册引擎到监控管理器
+    kv_engine_metrics_manager_t *manager = (kv_engine_metrics_manager_t*)metrics_manager;
+    return kv_engine_metrics_register_engine(manager, KV_ENGINE_HASH, engine->name);
+}
+
+static int btree_init_metrics(kv_engine_t *engine, void *metrics_manager) {
+    if (!engine || !metrics_manager) return KV_ERR_PARAM;
+    
+    engine->metrics_manager = metrics_manager;
+    engine->metrics_enabled = true;
+    engine->last_metrics_update = get_time_us();
+    
+    // 注册引擎到监控管理器
+    kv_engine_metrics_manager_t *manager = (kv_engine_metrics_manager_t*)metrics_manager;
+    return kv_engine_metrics_register_engine(manager, KV_ENGINE_BTREE, engine->name);
 } 
