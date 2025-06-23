@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-6-23 17:00:11
 * @Description: ConcordKV Raft consensus server - types.go
  */
 package raft
@@ -230,8 +230,42 @@ type Config struct {
 	Servers []Server
 }
 
-// Metrics Raft指标统计
+// LoadMetrics 负载指标统计 - 扩展Raft指标系统支持负载均衡
+type LoadMetrics struct {
+	// QPS 每秒查询数
+	QPS float64 `json:"qps"`
+
+	// StorageUsage 存储使用量(MB)
+	StorageUsage float64 `json:"storageUsage"`
+
+	// MemoryUsage 内存使用率 (0.0-1.0)
+	MemoryUsage float64 `json:"memoryUsage"`
+
+	// NetworkIOBytes 网络IO字节数/秒
+	NetworkIOBytes float64 `json:"networkIOBytes"`
+
+	// CPUUsage CPU使用率 (0.0-1.0)
+	CPUUsage float64 `json:"cpuUsage"`
+
+	// ActiveConnections 活跃连接数
+	ActiveConnections int64 `json:"activeConnections"`
+
+	// PendingOperations 待处理操作数
+	PendingOperations int64 `json:"pendingOperations"`
+
+	// LastUpdate 最后更新时间
+	LastUpdate time.Time `json:"lastUpdate"`
+
+	// HotKeys 热点键列表(最多10个)
+	HotKeys []string `json:"hotKeys"`
+
+	// LoadScore 综合负载评分 (0.0-1.0)
+	LoadScore float64 `json:"loadScore"`
+}
+
+// Metrics Raft指标统计 - 扩展支持负载监控
 type Metrics struct {
+	// === 原有Raft指标 ===
 	// CurrentTerm 当前任期
 	CurrentTerm Term
 
@@ -249,6 +283,13 @@ type Metrics struct {
 
 	// LastApplied 最后应用索引
 	LastApplied LogIndex
+
+	// === 新增负载指标 ===
+	// Load 负载指标
+	Load *LoadMetrics `json:"load,omitempty"`
+
+	// CollectedAt 指标收集时间
+	CollectedAt time.Time `json:"collectedAt"`
 }
 
 // Event 事件类型
