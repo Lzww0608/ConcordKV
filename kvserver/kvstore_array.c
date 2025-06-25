@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-6-25 19:44:11
 * @Description: ConcordKV storage engine - kvstore_array.c
  */
 #include "kv_store.h"
@@ -195,4 +195,24 @@ int kvs_array_count(array_t *arr) {
 	return count;
 }
 
-
+// 计算数组存储引擎的内存使用量
+size_t kvs_array_memory_usage(array_t *arr) {
+	if (!arr) return 0;
+	
+	size_t total_memory = 0;
+	
+	// 数组表结构本身的内存
+	total_memory += KVS_ARRAY_SIZE * sizeof(struct kvs_array_item);
+	
+	// 计算所有键值对的内存使用
+	for (int i = 0; i < arr->array_idx; i++) {
+		if (arr->array_table[i].key != NULL) {
+			total_memory += strlen(arr->array_table[i].key) + 1;
+		}
+		if (arr->array_table[i].value != NULL) {
+			total_memory += strlen(arr->array_table[i].value) + 1;
+		}
+	}
+	
+	return total_memory;
+}

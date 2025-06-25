@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-6-25 19:44:03
 * @Description: ConcordKV storage engine - kv_store.h
  */
 #ifndef __KV_STORE_H__
@@ -140,6 +140,7 @@ char *kvs_array_get(array_t *arr, char *key);
 int kvs_array_delete(array_t *arr, char *key);
 int kvs_array_modify(array_t *arr, char *key, char *value);
 int kvs_array_count(array_t *arr);
+size_t kvs_array_memory_usage(array_t *arr);
 
 
 #endif
