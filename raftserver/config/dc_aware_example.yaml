@@ -1,0 +1,83 @@
+# ConcordKV 多数据中心配置示例
+# 这个配置演示了如何设置跨数据中心的Raft集群
+
+# 服务器基础配置
+server:
+  nodeId: "node1-dc1"
+  listenAddr: ":8080"
+  apiAddr: ":8081"
+  electionTimeout: 5000  # 毫秒
+  heartbeatInterval: 1000  # 毫秒
+  maxLogEntries: 100
+  snapshotThreshold: 1000
+  
+  # 数据中心配置
+  dataCenter: "dc1"
+  replicaType: 0  # 0=PrimaryReplica, 1=AsyncReplica
+  
+  # 集群节点列表
+  peers:
+    - "node2-dc1:10.0.1.2:8080"
+    - "node3-dc1:10.0.1.3:8080"
+    - "node1-dc2:10.0.2.1:8080"
+    - "node2-dc2:10.0.2.2:8080"
+
+  # 多数据中心配置
+  multiDC:
+    enabled: true
+    
+    # 本地数据中心配置
+    localDataCenter:
+      id: "dc1"
+      isPrimary: true
+      asyncReplicationDelay: "100ms"
+      maxAsyncBatchSize: 50
+      enableCompression: true
+    
+    # 所有数据中心配置
+    dataCenters:
+      dc1:
+        id: "dc1"
+        isPrimary: true
+        asyncReplicationDelay: "100ms"
+        maxAsyncBatchSize: 50
+        enableCompression: true
+      dc2:
+        id: "dc2"
+        isPrimary: false
+        asyncReplicationDelay: "200ms"
+        maxAsyncBatchSize: 30
+        enableCompression: true
+    
+    # 跨数据中心参数
+    crossDCHeartbeatInterval: "2000ms"  # 跨DC心跳间隔
+    crossDCElectionTimeout: "10000ms"   # 跨DC选举超时
+    dcPriorityElection: true            # 启用DC优先级选举
+    maxCrossDCLatency: "500ms"          # 最大跨DC延迟容忍度
+
+# 日志配置
+logging:
+  level: "info"
+  file: "/var/log/concordkv/raftserver.log"
+  maxSize: 100  # MB
+  maxBackups: 5
+  maxAge: 30  # 天
+
+# 存储配置
+storage:
+  type: "memory"  # memory, disk
+  dataDir: "/var/lib/concordkv/data"
+  
+# 网络配置
+network:
+  readTimeout: "30s"
+  writeTimeout: "30s"
+  maxIdleConns: 100
+  maxConnsPerHost: 10
+
+# 监控配置
+monitoring:
+  enabled: true
+  metricsAddr: ":9090"
+  enablePprof: true
+  pprofAddr: ":6060" 

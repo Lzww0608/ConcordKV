@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-6-27 21:32:19
 * @Description: ConcordKV Raft consensus server - rpc.go
  */
 package raft
@@ -96,125 +96,73 @@ func (n *Node) HandleAppendEntries(req *AppendEntriesRequest) *AppendEntriesResp
 
 	currentTerm := n.getCurrentTerm()
 
-	n.logger.Printf("收到来自 %s 的追加日志请求，任期: %d，条目数: %d",
-		req.LeaderID, req.Term, len(req.Entries))
-
-	// 1. 如果领导者任期小于当前任期，拒绝请求
+	// 检查任期
 	if req.Term < currentTerm {
-		n.logger.Printf("拒绝追加日志：领导者任期 %d 小于当前任期 %d", req.Term, currentTerm)
 		return &AppendEntriesResponse{
 			Term:    currentTerm,
 			Success: false,
 		}
 	}
 
-	// 2. 如果领导者任期大于等于当前任期，转为跟随者
-	if req.Term >= currentTerm {
+	// 如果请求的任期更高，更新当前任期并转为跟随者
+	if req.Term > currentTerm {
+		if err := n.setCurrentTerm(req.Term); err != nil {
+			n.logger.Printf("设置任期失败: %v", err)
+		}
+		if err := n.setVotedFor(""); err != nil {
+			n.logger.Printf("清除投票状态失败: %v", err)
+		}
+		n.becomeFollower(req.Term, req.LeaderID)
+	} else if n.state != Follower {
+		// 如果任期相同但不是跟随者，转为跟随者
 		n.becomeFollower(req.Term, req.LeaderID)
 	}
 
-	// 重置选举定时器（收到了有效的领导者心跳）
+	// 记录DC心跳（无论是否同步复制） ⭐ 新增
+	n.recordDCHeartbeat(req.LeaderID)
+
+	// 检查DC感知处理 ⭐ 新增
+	if n.dcExtension != nil {
+		if dcResp, shouldUseDCProcessing := n.dcExtension.ProcessAppendEntries(req); shouldUseDCProcessing {
+			return dcResp
+		}
+	}
+
+	// 重置选举定时器
 	n.resetElectionTimer()
+	n.lastHeartbeat = time.Now()
 
-	// 3. 检查日志一致性
-	lastLogIndex := n.storage.GetLastLogIndex()
-
-	// 如果 prevLogIndex 大于本地最后一个日志索引，拒绝
-	if req.PrevLogIndex > lastLogIndex {
-		n.logger.Printf("日志不一致：prevLogIndex %d 大于 lastLogIndex %d", req.PrevLogIndex, lastLogIndex)
+	// 检查日志一致性
+	if !n.checkLogConsistency(req.PrevLogIndex, req.PrevLogTerm) {
 		return &AppendEntriesResponse{
-			Term:          req.Term,
-			Success:       false,
-			ConflictIndex: lastLogIndex + 1,
-			ConflictTerm:  0,
+			Term:    req.Term,
+			Success: false,
 		}
 	}
 
-	// 如果 prevLogIndex > 0，检查 prevLogTerm 是否匹配
-	if req.PrevLogIndex > 0 {
-		prevEntry, err := n.storage.GetLogEntry(req.PrevLogIndex)
-		if err != nil {
-			n.logger.Printf("获取前一个日志条目失败: %v", err)
-			return &AppendEntriesResponse{
-				Term:          req.Term,
-				Success:       false,
-				ConflictIndex: req.PrevLogIndex,
-				ConflictTerm:  0,
-			}
-		}
-
-		if prevEntry.Term != req.PrevLogTerm {
-			n.logger.Printf("日志不一致：prevLogTerm %d != %d", prevEntry.Term, req.PrevLogTerm)
-
-			// 查找冲突任期的第一个索引
-			conflictTerm := prevEntry.Term
-			conflictIndex := req.PrevLogIndex
-
-			for i := req.PrevLogIndex - 1; i >= 1; i-- {
-				entry, err := n.storage.GetLogEntry(i)
-				if err != nil || entry.Term != conflictTerm {
-					conflictIndex = i + 1
-					break
-				}
-			}
-
-			return &AppendEntriesResponse{
-				Term:          req.Term,
-				Success:       false,
-				ConflictIndex: conflictIndex,
-				ConflictTerm:  conflictTerm,
-			}
-		}
-	}
-
-	// 4. 如果有新的日志条目，追加到本地日志
+	// 如果有新条目，添加到日志
 	if len(req.Entries) > 0 {
-		// 检查是否有冲突的现有条目
-		for i, entry := range req.Entries {
-			index := req.PrevLogIndex + LogIndex(i) + 1
+		n.logger.Printf("收到 %d 个新日志条目，从索引 %d 开始", len(req.Entries), req.Entries[0].Index)
 
-			if index <= lastLogIndex {
-				existingEntry, err := n.storage.GetLogEntry(index)
-				if err == nil && existingEntry.Term != entry.Term {
-					// 发现冲突，删除这个索引及之后的所有条目
-					n.logger.Printf("发现日志冲突在索引 %d，删除后续条目", index)
-					if err := n.storage.TruncateLog(index - 1); err != nil {
-						n.logger.Printf("截断日志失败: %v", err)
-						return &AppendEntriesResponse{
-							Term:    req.Term,
-							Success: false,
-						}
-					}
-					break
-				}
-			}
-		}
-
-		// 保存新的日志条目
-		if err := n.storage.SaveLogEntries(req.Entries); err != nil {
-			n.logger.Printf("保存日志条目失败: %v", err)
+		// 删除冲突的条目并添加新条目
+		if err := n.appendNewEntries(req.Entries); err != nil {
+			n.logger.Printf("添加新条目失败: %v", err)
 			return &AppendEntriesResponse{
 				Term:    req.Term,
 				Success: false,
 			}
 		}
-
-		n.logger.Printf("成功追加 %d 个日志条目", len(req.Entries))
 	}
 
-	// 5. 更新提交索引
+	// 更新提交索引
 	if req.LeaderCommit > n.commitIndex {
 		oldCommitIndex := n.commitIndex
 		n.commitIndex = min(req.LeaderCommit, n.storage.GetLastLogIndex())
+		n.logger.Printf("更新commitIndex从 %d 到 %d", oldCommitIndex, n.commitIndex)
 
-		if n.commitIndex > oldCommitIndex {
-			n.logger.Printf("更新 commitIndex 从 %d 到 %d", oldCommitIndex, n.commitIndex)
-			// 异步应用已提交的日志
-			go n.applyCommittedLogs()
-		}
+		// 异步应用新提交的日志
+		go n.applyCommittedLogs()
 	}
-
-	n.updateMetrics()
 
 	return &AppendEntriesResponse{
 		Term:    req.Term,
@@ -351,3 +299,62 @@ func min(a, b LogIndex) LogIndex {
 var (
 	ErrNotLeader = fmt.Errorf("不是领导者")
 )
+
+// checkLogConsistency 检查日志一致性 ⭐ 新增
+func (n *Node) checkLogConsistency(prevLogIndex LogIndex, prevLogTerm Term) bool {
+	lastLogIndex := n.storage.GetLastLogIndex()
+
+	// 如果 prevLogIndex 大于本地最后一个日志索引，拒绝
+	if prevLogIndex > lastLogIndex {
+		n.logger.Printf("日志不一致：prevLogIndex %d 大于 lastLogIndex %d", prevLogIndex, lastLogIndex)
+		return false
+	}
+
+	// 如果 prevLogIndex > 0，检查 prevLogTerm 是否匹配
+	if prevLogIndex > 0 {
+		prevEntry, err := n.storage.GetLogEntry(prevLogIndex)
+		if err != nil {
+			n.logger.Printf("获取前一个日志条目失败: %v", err)
+			return false
+		}
+
+		if prevEntry.Term != prevLogTerm {
+			n.logger.Printf("日志不一致：prevLogTerm %d != %d", prevEntry.Term, prevLogTerm)
+			return false
+		}
+	}
+
+	return true
+}
+
+// appendNewEntries 添加新的日志条目 ⭐ 新增
+func (n *Node) appendNewEntries(entries []LogEntry) error {
+	lastLogIndex := n.storage.GetLastLogIndex()
+
+	// 检查是否有冲突的现有条目
+	for _, entry := range entries {
+		index := entry.Index
+
+		if index <= lastLogIndex {
+			existingEntry, err := n.storage.GetLogEntry(index)
+			if err == nil && existingEntry.Term != entry.Term {
+				// 发现冲突，删除这个索引及之后的所有条目
+				n.logger.Printf("发现日志冲突在索引 %d，删除后续条目", index)
+				if err := n.storage.TruncateLog(index - 1); err != nil {
+					n.logger.Printf("截断日志失败: %v", err)
+					return err
+				}
+				break
+			}
+		}
+	}
+
+	// 保存新的日志条目
+	if err := n.storage.SaveLogEntries(entries); err != nil {
+		n.logger.Printf("保存日志条目失败: %v", err)
+		return err
+	}
+
+	n.logger.Printf("成功追加 %d 个日志条目", len(entries))
+	return nil
+}

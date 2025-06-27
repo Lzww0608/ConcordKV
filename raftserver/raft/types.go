@@ -120,10 +120,35 @@ type Configuration struct {
 	Servers []Server `json:"servers"` // 服务器列表
 }
 
-// Server 服务器信息
+// DataCenterID 数据中心标识符
+type DataCenterID string
+
+// ReplicaType 副本类型
+type ReplicaType int
+
+const (
+	// PrimaryReplica 主副本（同步复制）
+	PrimaryReplica ReplicaType = iota
+	// AsyncReplica 异步副本（异步复制）
+	AsyncReplica
+)
+
+func (r ReplicaType) String() string {
+	switch r {
+	case PrimaryReplica:
+		return "Primary"
+	case AsyncReplica:
+		return "Async"
+	default:
+		return "Unknown"
+	}
+}
+
 type Server struct {
-	ID      NodeID `json:"id"`      // 服务器ID
-	Address string `json:"address"` // 服务器地址
+	ID          NodeID       `json:"id"`          // 服务器ID
+	Address     string       `json:"address"`     // 服务器地址
+	DataCenter  DataCenterID `json:"dataCenter"`  // 数据中心标识
+	ReplicaType ReplicaType  `json:"replicaType"` // 副本类型
 }
 
 // Snapshot 快照结构
@@ -209,6 +234,48 @@ type StateMachine interface {
 	RestoreSnapshot(data []byte) error
 }
 
+// DataCenterConfig 数据中心配置
+type DataCenterConfig struct {
+	// ID 数据中心标识
+	ID DataCenterID `json:"id"`
+
+	// IsPrimary 是否为主数据中心
+	IsPrimary bool `json:"isPrimary"`
+
+	// AsyncReplicationDelay 异步复制延迟
+	AsyncReplicationDelay time.Duration `json:"asyncReplicationDelay"`
+
+	// MaxAsyncBatchSize 异步复制最大批次大小
+	MaxAsyncBatchSize int `json:"maxAsyncBatchSize"`
+
+	// EnableCompression 是否启用压缩传输
+	EnableCompression bool `json:"enableCompression"`
+}
+
+// MultiDCConfig 多数据中心配置
+type MultiDCConfig struct {
+	// Enabled 是否启用多数据中心模式
+	Enabled bool `json:"enabled"`
+
+	// LocalDataCenter 本地数据中心配置
+	LocalDataCenter *DataCenterConfig `json:"localDataCenter"`
+
+	// DataCenters 所有数据中心配置
+	DataCenters map[DataCenterID]*DataCenterConfig `json:"dataCenters"`
+
+	// CrossDCHeartbeatInterval 跨数据中心心跳间隔
+	CrossDCHeartbeatInterval time.Duration `json:"crossDCHeartbeatInterval"`
+
+	// CrossDCElectionTimeout 跨数据中心选举超时
+	CrossDCElectionTimeout time.Duration `json:"crossDCElectionTimeout"`
+
+	// DCPriorityElection 是否启用数据中心优先级选举
+	DCPriorityElection bool `json:"dcPriorityElection"`
+
+	// MaxCrossDCLatency 最大跨数据中心延迟容忍度
+	MaxCrossDCLatency time.Duration `json:"maxCrossDCLatency"`
+}
+
 // Config Raft配置
 type Config struct {
 	// NodeID 当前节点ID
@@ -228,6 +295,9 @@ type Config struct {
 
 	// Servers 集群服务器列表
 	Servers []Server
+
+	// MultiDC 多数据中心配置
+	MultiDC *MultiDCConfig `json:"multiDC,omitempty"`
 }
 
 // LoadMetrics 负载指标统计 - 扩展Raft指标系统支持负载均衡
@@ -252,74 +322,55 @@ type LoadMetrics struct {
 
 	// PendingOperations 待处理操作数
 	PendingOperations int64 `json:"pendingOperations"`
-
-	// LastUpdate 最后更新时间
-	LastUpdate time.Time `json:"lastUpdate"`
-
-	// HotKeys 热点键列表(最多10个)
-	HotKeys []string `json:"hotKeys"`
-
-	// LoadScore 综合负载评分 (0.0-1.0)
-	LoadScore float64 `json:"loadScore"`
 }
 
-// Metrics Raft指标统计 - 扩展支持负载监控
+// Metrics Raft节点指标统计
 type Metrics struct {
-	// === 原有Raft指标 ===
-	// CurrentTerm 当前任期
-	CurrentTerm Term
+	// 基础指标
+	CurrentTerm Term      `json:"currentTerm"` // 当前任期
+	CommitIndex LogIndex  `json:"commitIndex"` // 提交索引
+	LastApplied LogIndex  `json:"lastApplied"` // 最后应用索引
+	State       NodeState `json:"state"`       // 节点状态
+	LeaderID    NodeID    `json:"leaderID"`    // 领导者ID
 
-	// State 当前状态
-	State NodeState
+	// 性能指标
+	RequestsPerSecond float64 `json:"requestsPerSecond"` // 每秒请求数
+	AverageLatency    float64 `json:"averageLatency"`    // 平均延迟(ms)
 
-	// Leader 当前领导者
-	Leader NodeID
+	// 选举指标
+	ElectionCount    int64 `json:"electionCount"`    // 选举次数
+	LastElectionTime int64 `json:"lastElectionTime"` // 最后选举时间
 
-	// LastLogIndex 最后日志索引
-	LastLogIndex LogIndex
+	// 日志指标
+	LogEntryCount int64 `json:"logEntryCount"` // 日志条目数
 
-	// CommitIndex 提交索引
-	CommitIndex LogIndex
-
-	// LastApplied 最后应用索引
-	LastApplied LogIndex
-
-	// === 新增负载指标 ===
-	// Load 负载指标
-	Load *LoadMetrics `json:"load,omitempty"`
-
-	// CollectedAt 指标收集时间
-	CollectedAt time.Time `json:"collectedAt"`
+	// 负载指标
+	Load LoadMetrics `json:"load"` // 负载指标
 }
 
-// Event 事件类型
-type Event interface {
-	Type() string
+// EventListener 事件监听器接口
+type EventListener interface {
+	// OnStateChange 状态变更事件
+	OnStateChange(event StateChangeEvent)
+
+	// OnLeaderChange 领导者变更事件
+	OnLeaderChange(event LeaderChangeEvent)
 }
 
 // StateChangeEvent 状态变更事件
 type StateChangeEvent struct {
-	OldState NodeState
-	NewState NodeState
-	Term     Term
-}
-
-func (e *StateChangeEvent) Type() string {
-	return "StateChange"
+	NodeID   NodeID    `json:"nodeID"`   // 节点ID
+	OldState NodeState `json:"oldState"` // 旧状态
+	NewState NodeState `json:"newState"` // 新状态
+	Term     Term      `json:"term"`     // 任期
+	Time     int64     `json:"time"`     // 事件时间戳
 }
 
 // LeaderChangeEvent 领导者变更事件
 type LeaderChangeEvent struct {
-	OldLeader NodeID
-	NewLeader NodeID
-	Term      Term
-}
-
-func (e *LeaderChangeEvent) Type() string {
-	return "LeaderChange"
-}
-
-// EventListener 事件监听器
-type EventListener interface {
-	OnEvent(event Event)
+	NodeID      NodeID `json:"nodeID"`      // 节点ID
+	OldLeaderID NodeID `json:"oldLeaderID"` // 旧领导者ID
+	NewLeaderID NodeID `json:"newLeaderID"` // 新领导者ID
+	Term        Term   `json:"term"`        // 任期
+	Time        int64  `json:"time"`        // 事件时间戳
 }

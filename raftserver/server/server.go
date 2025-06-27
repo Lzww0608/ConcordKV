@@ -2,7 +2,7 @@
 * @Author: Lzww0608
 * @Date: 2025-5-30 09:56:35
 * @LastEditors: Lzww0608
-* @LastEditTime: 2025-5-30 09:56:35
+* @LastEditTime: 2025-6-27 21:08:28
 * @Description: ConcordKV Raft consensus server - server.go
  */
 package server
@@ -45,6 +45,11 @@ type ServerConfig struct {
 	MaxLogEntries     int                    `yaml:"maxLogEntries"`
 	SnapshotThreshold int                    `yaml:"snapshotThreshold"`
 	Peers             map[raft.NodeID]string `yaml:"peers"`
+
+	// 数据中心配置
+	DataCenter    raft.DataCenterID   `yaml:"dataCenter"`
+	ReplicaType   raft.ReplicaType    `yaml:"replicaType"`
+	MultiDCConfig *raft.MultiDCConfig `yaml:"multiDC,omitempty"`
 }
 
 // NewServer 创建新的服务器
@@ -64,6 +69,10 @@ func NewServer(configPath string) (*Server, error) {
 		MaxLogEntries:     cfg.GetInt("server.maxLogEntries", 100),
 		SnapshotThreshold: cfg.GetInt("server.snapshotThreshold", 1000),
 		Peers:             make(map[raft.NodeID]string),
+
+		// 数据中心配置
+		DataCenter:  raft.DataCenterID(cfg.GetString("server.dataCenter", "dc1")),
+		ReplicaType: raft.ReplicaType(cfg.GetInt("server.replicaType", int(raft.PrimaryReplica))),
 	}
 
 	// 加载节点列表
@@ -100,21 +109,26 @@ func NewServerWithConfig(config *ServerConfig) (*Server, error) {
 		MaxLogEntries:     config.MaxLogEntries,
 		SnapshotThreshold: config.SnapshotThreshold,
 		Servers:           make([]raft.Server, 0),
+		MultiDC:           config.MultiDCConfig,
 	}
 
 	// 添加服务器列表
 	for nodeID, addr := range config.Peers {
 		raftConfig.Servers = append(raftConfig.Servers, raft.Server{
-			ID:      nodeID,
-			Address: addr,
+			ID:          nodeID,
+			Address:     addr,
+			DataCenter:  config.DataCenter,
+			ReplicaType: config.ReplicaType,
 		})
 	}
 
 	// 如果没有配置其他节点，添加自己作为单节点集群
 	if len(raftConfig.Servers) == 0 {
 		raftConfig.Servers = append(raftConfig.Servers, raft.Server{
-			ID:      config.NodeID,
-			Address: config.ListenAddr,
+			ID:          config.NodeID,
+			Address:     config.ListenAddr,
+			DataCenter:  config.DataCenter,
+			ReplicaType: config.ReplicaType,
 		})
 	}
 
