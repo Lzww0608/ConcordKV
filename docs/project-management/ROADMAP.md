@@ -1112,7 +1112,7 @@
 - **测试运行器** (`test_runner.go`) ✅ **集成功能验证成功**
 
 
-##### **5.2.3 故障转移和恢复**
+[x]##### **5.2.3 故障转移和恢复**
 **复用现有代码：**
 - 基于现有 Raft 的故障检测机制
 - 利用 `raftserver/raft/membership.go` 的成员变更
@@ -1133,23 +1133,185 @@
 **优先级：** 高
 **基础设施复用：** Go客户端框架、HTTP传输层、服务发现基础
 
-##### **5.3.1 中央拓扑服务**
-**复用现有代码：**
-- 基于 `raftserver/` 的完整Raft实现作为拓扑服务后端
-- 利用现有 `raftserver/server/server.go` 的API框架
-- 扩展 `raftserver/config/example.yaml` 配置系统
+[x]##### **5.3.1 中央拓扑服务** 
 
-**核心实现：**
-- **拓扑服务器** (`raftserver/topology/topology_service.go`)
-  - 基于Raft的高可用拓扑元数据存储
-  - 分片到节点映射关系管理
-  - 节点健康状态实时更新
-  - 与现有集群管理API集成
+**架构设计原则：**
+- 基于现有 `raftserver/raft/node.go` 的完整Raft实现作为高可用拓扑后端
+- 扩展现有 `raftserver/server/server.go` 的HTTP API框架提供RESTful接口
+- 完全兼容现有 `raftserver/sharding/shard_metadata.go` 分片元数据管理
+- 集成现有 `raftserver/transport/http.go` 传输层实现高效通信
 
-- **拓扑变更通知** (`raftserver/topology/change_notifier.go`)
-  - 基于现有HTTP API的事件推送
-  - 客户端订阅和通知机制
-  - 拓扑变更版本管理
+#### **阶段1：拓扑服务核心模块**
+**1.1 拓扑元数据管理器** (`raftserver/topology/topology_service.go`)
+```go
+// 核心功能设计
+type TopologyService struct {
+    // 复用现有组件
+    raftNode         *raft.Node                    // 基于现有Raft实现
+    shardManager     *sharding.ShardMetadataManager // 复用分片元数据管理
+    transport        *transport.HTTPTransport       // 复用HTTP传输层
+    
+    // 拓扑专用功能
+    topologyCache    map[string]*TopologySnapshot   // 拓扑快照缓存
+    subscriptions    map[string]*TopologySubscriber // 客户端订阅管理
+    healthCheckers   map[raft.NodeID]*NodeHealthStatus // 节点健康状态
+    version          int64                          // 拓扑版本管理
+}
+```
+
+**技术实现要点：**
+- **分片映射存储**：扩展现有 `raft.LogEntry` 类型，新增 `EntryTopologyChange` 日志类型
+- **状态机集成**：基于现有 `statemachine.KVStateMachine` 添加拓扑状态管理
+- **版本控制**：利用现有Raft日志索引作为拓扑版本号，确保强一致性
+
+**1.2 节点健康监控** (`raftserver/topology/health_monitor.go`)
+```go
+// 健康检查器设计
+type HealthMonitor struct {
+    // 复用现有传输层
+    transport      *transport.HTTPTransport
+    
+    // 健康检查功能
+    checkInterval  time.Duration
+    timeoutConfig  *HealthCheckConfig
+    failureHistory map[raft.NodeID]*FailureRecord
+}
+```
+
+**技术实现要点：**
+- **现有API复用**：扩展 `raftserver/server/server.go` 的 `/health` 端点
+- **故障检测**：基于现有心跳机制增强故障检测逻辑
+- **健康状态存储**：利用Raft日志存储健康状态变更
+
+#### **阶段2：事件通知系统**
+**2.1 拓扑变更通知器** (`raftserver/topology/change_notifier.go`)
+```go
+// 通知系统设计
+type ChangeNotifier struct {
+    // 复用现有HTTP框架
+    httpServer    *http.Server               // 基于现有API服务器
+    
+    // 事件管理
+    eventQueue    chan *TopologyEvent       // 异步事件队列
+    subscribers   map[string]*Subscription  // 客户端订阅列表
+    eventHistory  []*TopologyEvent          // 事件历史记录
+}
+```
+
+**技术实现要点：**
+- **HTTP长连接**：扩展现有HTTP API，支持Server-Sent Events (SSE)
+- **事件持久化**：基于Raft日志存储重要拓扑变更事件
+- **客户端SDK**：扩展现有Go客户端，添加拓扑事件监听
+
+**2.2 客户端拓扑缓存** (`raftserver/topology/topology_client.go`)
+```go
+// 智能客户端缓存设计
+type TopologyClient struct {
+    // 复用现有客户端框架
+    httpClient    *http.Client              // 基于现有HTTP客户端
+    
+    // 拓扑缓存
+    localCache    *TopologySnapshot         // 本地拓扑缓存
+    cachePolicy   *CachePolicy              // 缓存策略配置
+    updateChannel chan *TopologyEvent       // 拓扑更新通道
+}
+```
+
+#### **阶段3：API接口扩展**
+**3.1 拓扑管理API** (扩展 `raftserver/server/server.go`)
+```go
+// 新增API端点
+func (s *Server) setupTopologyAPI(mux *http.ServeMux) {
+    // 拓扑查询API
+    mux.HandleFunc("/api/topology/snapshot", s.handleTopologySnapshot)
+    mux.HandleFunc("/api/topology/shards", s.handleShardMapping)
+    mux.HandleFunc("/api/topology/nodes", s.handleNodeStatus)
+    
+    // 事件订阅API
+    mux.HandleFunc("/api/topology/subscribe", s.handleTopologySubscribe)
+    mux.HandleFunc("/api/topology/events", s.handleTopologyEvents)
+    
+    // 管理操作API
+    mux.HandleFunc("/api/topology/health", s.handleHealthCheck)
+    mux.HandleFunc("/api/topology/version", s.handleTopologyVersion)
+}
+```
+
+**API设计规范：**
+- **RESTful风格**：完全兼容现有API设计模式
+- **版本化支持**：支持API版本控制，向后兼容
+- **认证集成**：预留与现有认证系统集成接口
+
+#### **阶段4：配置系统扩展**
+**4.1 拓扑服务配置** (扩展 `raftserver/config/example.yaml`)
+```yaml
+# 拓扑服务配置
+topology:
+  enabled: true
+  
+  # 健康检查配置
+  health_check:
+    interval: "30s"
+    timeout: "5s"
+    retry_count: 3
+    failure_threshold: 3
+    
+  # 事件通知配置
+  notifications:
+    enable_sse: true
+    event_buffer_size: 1000
+    subscription_timeout: "300s"
+    
+  # 缓存配置
+  cache:
+    ttl: "60s"
+    max_entries: 10000
+    compression: true
+```
+
+#### **阶段5：集成测试框架**
+**5.1 综合测试套件** (`ConcordKV/tests/raftserver/topology_integration_test.go`)
+```go
+// 集成测试设计
+func TestTopologyServiceIntegration(t *testing.T) {
+    // 测试场景覆盖
+    t.Run("BasicTopologyOperations", testBasicTopologyOps)
+    t.Run("HealthMonitoring", testHealthMonitoring)  
+    t.Run("EventNotifications", testEventNotifications)
+    t.Run("ClientCaching", testClientCaching)
+    t.Run("FailoverScenarios", testFailoverScenarios)
+}
+```
+
+**测试覆盖目标：**
+- **功能测试**：95%+ 代码覆盖率
+- **性能测试**：拓扑查询延迟 < 10ms，事件通知延迟 < 100ms
+- **一致性测试**：验证拓扑变更的强一致性保证
+- **故障测试**：节点故障、网络分区等异常场景
+
+#### **技术优势总结**
+
+**🚀 现有代码复用优势：**
+- **Raft共识算法**：100%复用成熟的共识实现，确保拓扑数据强一致性
+- **分片管理框架**：完全兼容现有分片元数据管理，无需重构
+- **HTTP传输层**：利用现有高性能HTTP框架，支持并发和长连接
+- **配置管理系统**：扩展现有配置框架，保持统一的配置风格
+
+**⚡ 性能指标目标：**
+- **拓扑查询性能**：单次查询延迟 < 5ms，支持 10,000+ QPS
+- **事件通知延迟**：拓扑变更到客户端通知 < 50ms
+- **内存使用优化**：拓扑缓存占用 < 100MB (支持1000个节点)
+- **网络带宽效率**：事件增量传输，减少90%+ 网络开销
+
+**🔒 一致性保证：**
+- **强一致性**：基于Raft共识算法，确保拓扑数据全局一致
+- **版本控制**：基于日志索引的拓扑版本，支持客户端增量更新
+- **故障恢复**：自动故障检测和主从切换，RTO < 30秒
+
+**📈 可扩展性设计：**
+- **水平扩展**：支持拓扑服务集群化部署，无单点故障
+- **客户端缓存**：智能本地缓存减少服务端压力
+- **事件驱动**：异步事件通知架构，支持大规模客户端订阅
 
 ##### **5.3.2 智能客户端SDK增强**
 **复用现有代码：**
