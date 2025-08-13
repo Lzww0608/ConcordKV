@@ -6,17 +6,6 @@
 *.dll
 *.exe
 
-# 目标文件和可执行文件
-kvserver
-libkvstore.so
-kv_engine_test
-btree_test
-debug_btree
-simple_debug
-btree_production_test
-test_hash_optimized
-simple_hash_test
-
 # 调试文件
 *.dSYM/
 *.gdb_history

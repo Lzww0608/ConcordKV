@@ -1,0 +1,96 @@
+{
+  "engine": {
+    "strategy": "fixed",
+    "default": "hash",
+    "max_engines": 5,
+    "enable_statistics": true,
+    "enable_monitoring": true
+  },
+  "monitoring": {
+    "enabled": true,
+    "collection_interval_ms": 1000,
+    "retention_samples": 1000,
+    "http_server": {
+      "enabled": true,
+      "host": "0.0.0.0",
+      "port": 9090,
+      "path": "/metrics",
+      "max_connections": 10,
+      "timeout_seconds": 30
+    },
+    "metrics_config": {
+      "enable_latency_histograms": true,
+      "latency_buckets": [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0],
+      "enable_engine_specific": true,
+      "enable_memory_tracking": true
+    },
+    "alerts": {
+      "enabled": false,
+      "high_latency_threshold_ms": 100.0,
+      "high_memory_threshold_mb": 1024,
+      "error_rate_threshold": 0.01
+    }
+  },
+  "performance": {
+    "memory_limit": 268435456,
+    "cache_size": 67108864,
+    "worker_threads": 4,
+    "io_threads": 2
+  },
+  "storage": {
+    "data_directory": "./data",
+    "enable_wal": false,
+    "enable_sync": false,
+    "sync_interval": 5
+  },
+  "network": {
+    "listen_host": "0.0.0.0",
+    "listen_port": 6379,
+    "max_connections": 1000,
+    "connection_timeout": 30
+  },
+  "engines": {
+    "array": {
+      "memory_limit": 53687091,
+      "cache_size": 13421772,
+      "enable_compression": false,
+      "enable_checksum": false,
+      "data_dir": "./data/array"
+    },
+    "rbtree": {
+      "memory_limit": 53687091,
+      "cache_size": 13421772,
+      "enable_compression": false,
+      "enable_checksum": false,
+      "data_dir": "./data/rbtree"
+    },
+    "hash": {
+      "memory_limit": 53687091,
+      "cache_size": 13421772,
+      "enable_compression": false,
+      "enable_checksum": false,
+      "data_dir": "./data/hash",
+      "initial_buckets": 1024,
+      "load_factor": 0.75
+    },
+    "btree": {
+      "memory_limit": 53687091,
+      "cache_size": 13421772,
+      "enable_compression": false,
+      "enable_checksum": false,
+      "data_dir": "./data/btree",
+      "page_size": 4096,
+      "max_keys_per_node": 128
+    },
+    "lsm": {
+      "memory_limit": 53687091,
+      "cache_size": 13421772,
+      "enable_compression": true,
+      "enable_checksum": true,
+      "data_dir": "./data/lsm",
+      "memtable_size": 67108864,
+      "level0_file_limit": 4,
+      "level_size_multiplier": 10.0
+    }
+  }
+} 
